@@ -1,0 +1,25 @@
+{
+  "name": "dsh-plugin-bft",
+  "version": "0.1.0",
+  "description": "Раздел «Управление требованиями» для DeepSeek Harness: очередь БФТ из Backlog.md, документы и доска",
+  "license": "MIT",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": ["lib"],
+  "scripts": {
+    "build": "tsc",
+    "test": "tsc -p tsconfig.test.json && node --test lib-test/test/*.test.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}
