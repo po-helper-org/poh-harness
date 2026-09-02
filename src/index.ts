@@ -1,4 +1,5 @@
 export * from './model.js'
+export { loadConfig, describeConfig, type BftConfig, type BftServiceAccess, type Env } from './config.js'
 export { parseTaskList } from './parse-list.js'
 export { parseTaskView } from './parse-view.js'
 export { classifyLinks } from './classify-links.js'
