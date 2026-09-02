@@ -18,7 +18,7 @@
 ```sh
 cp .env.example .env    # заполнить под свою машину
 pnpm install
-pnpm test               # 56 тестов
+pnpm test               # 62 теста
 pnpm build              # сборка в lib/
 ```
 

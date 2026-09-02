@@ -4,6 +4,7 @@ import {
   QUEUE_ORDER,
   type BftPriority,
   type BftStage,
+  type BftTask,
   type BftTaskSummary,
 } from './model.js'
 
@@ -43,9 +44,20 @@ export function boardColumns(tasks: BftTaskSummary[]): BftGroup[] {
   return group(tasks, CANON_ORDER, true)
 }
 
-/** Поиск по названию и идентификатору, без учёта регистра. Пустой запрос ничего не фильтрует. */
+/**
+ * Поиск без учёта регистра. Пустой запрос ничего не фильтрует.
+ * Ищет по названию и идентификатору всегда, а по заказчику и описанию — когда
+ * они есть: в списке задач этих полей нет, они появляются только после разбора карточки.
+ */
 export function searchTasks<T extends BftTaskSummary>(tasks: T[], query: string): T[] {
   const q = query.trim().toLowerCase()
   if (!q) return tasks
-  return tasks.filter(t => `${t.title} ${t.id}`.toLowerCase().includes(q))
+  return tasks.filter(task => {
+    const full = task as Partial<BftTask>
+    const haystack = [task.title, task.id, full.customer, full.description]
+      .filter((part): part is string => typeof part === 'string')
+      .join(' ')
+      .toLowerCase()
+    return haystack.includes(q)
+  })
 }

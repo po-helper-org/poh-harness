@@ -189,3 +189,51 @@ Description:
   assert.equal(t.description, 'Обсуждали, что ## SMART заполняем позже.')
   assert.equal(t.smart, undefined)
 })
+
+test('заказчик вынимается из префикса описания и убирается из него', () => {
+  const t = parseTaskView(`Task PO-20 - БФТ: Блокировка мест
+==========
+
+Status: ○ To Do
+Priority: High
+Type: bft
+
+Description:
+--------------------------------------------------
+Заказчик: Кардона Елена (ОПРО). Бесконечная бронь позволяет спекулянтам держать места.
+`)
+  assert.equal(t.customer, 'Кардона Елена (ОПРО)')
+  assert.equal(t.description, 'Бесконечная бронь позволяет спекулянтам держать места.')
+})
+
+test('заказчик с косой чертой в имени разбирается целиком', () => {
+  const t = parseTaskView(`Task PO-11 - БФТ: Агент
+==========
+
+Status: ○ To Do
+Priority: Low
+Type: bft
+
+Description:
+--------------------------------------------------
+Заказчик: Николаев Данила / Романов Василий (Engineering). PoC AI-агента.
+`)
+  assert.equal(t.customer, 'Николаев Данила / Романов Василий (Engineering)')
+  assert.equal(t.description, 'PoC AI-агента.')
+})
+
+test('описание без префикса заказчика остаётся нетронутым', () => {
+  const t = parseTaskView(`Task PO-13 - БФТ: Кино
+==========
+
+Status: ○ To Do
+Priority: Medium
+Type: bft
+
+Description:
+--------------------------------------------------
+Партнёр хочет продавать билеты в кино.
+`)
+  assert.equal(t.customer, undefined)
+  assert.equal(t.description, 'Партнёр хочет продавать билеты в кино.')
+})

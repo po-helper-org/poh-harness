@@ -54,3 +54,29 @@ test('пустой запрос возвращает всё как есть', ()
 test('ничего не нашлось — пустой список', () => {
   assert.deepEqual(searchTasks(TASKS, 'зззз'), [])
 })
+
+test('поиск находит по заказчику, когда поле есть', () => {
+  const full = [
+    { id: 'PO-20', title: 'Блокировка мест', stage: 'To Do' as const, priority: 'high' as const,
+      customer: 'Кардона Елена (ОПРО)', description: 'Бронь держат спекулянты.',
+      howToDemo: [], links: { other: [] } },
+    { id: 'PO-13', title: 'Кино на ВТБ Афише', stage: 'To Do' as const, priority: 'low' as const,
+      customer: 'Бородин Максим (Коммерция)', description: 'Новый канал продаж.',
+      howToDemo: [], links: { other: [] } },
+  ]
+  assert.deepEqual(searchTasks(full, 'кардона').map(t => t.id), ['PO-20'])
+  assert.deepEqual(searchTasks(full, 'коммерция').map(t => t.id), ['PO-13'])
+})
+
+test('поиск находит по описанию', () => {
+  const full = [
+    { id: 'PO-20', title: 'Блокировка мест', stage: 'To Do' as const, priority: 'high' as const,
+      customer: 'Кардона Елена', description: 'Бронь держат спекулянты.',
+      howToDemo: [], links: { other: [] } },
+  ]
+  assert.deepEqual(searchTasks(full, 'спекулянт').map(t => t.id), ['PO-20'])
+})
+
+test('поиск не падает на строках списка, где заказчика и описания нет', () => {
+  assert.deepEqual(searchTasks(TASKS, 'каталог').map(t => t.id), ['PO-9'])
+})

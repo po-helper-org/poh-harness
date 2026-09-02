@@ -9,6 +9,8 @@ const TITLE_PREFIX = /^БФТ:\s*/
 const REASON_PREFIX = /^Причина:\s*/
 const SMART_HEADING_RE = /^## SMART$/m
 const PRIORITIES = new Set<string>(['high', 'medium', 'low'])
+/** Заказчик — префикс описания до первой точки с пробелом или концом строки. */
+const CUSTOMER_RE = /^Заказчик:\s*([^.]+?)\.(?:\s+|$)/
 
 /**
  * Секция вывода — это заголовок, линия из дефисов и текст до следующего заголовка.
@@ -42,7 +44,15 @@ export function parseTaskView(stdout: string): BftTask {
 
   const descriptionRaw = section(normalized, 'Description')
   const smartHeading = SMART_HEADING_RE.exec(descriptionRaw)
-  const description = (smartHeading ? descriptionRaw.slice(0, smartHeading.index) : descriptionRaw).trim()
+  const withoutSmart = (smartHeading ? descriptionRaw.slice(0, smartHeading.index) : descriptionRaw).trim()
+
+  // Заказчик стоит префиксом описания: «Заказчик: ФИО (подразделение). Дальше суть».
+  // Превью показывает его отдельным полем, поэтому вырезаем из описания.
+  const customerMatch = CUSTOMER_RE.exec(withoutSmart)
+  const customer = customerMatch?.[1].trim() || undefined
+  const description = customerMatch
+    ? withoutSmart.slice(customerMatch[0].length).trim()
+    : withoutSmart
   const smart = smartHeading
     ? descriptionRaw.slice(smartHeading.index + smartHeading[0].length).trim() || undefined
     : undefined
@@ -67,6 +77,7 @@ export function parseTaskView(stdout: string): BftTask {
     title: head[2].replace(TITLE_PREFIX, '').trim(),
     stage,
     priority,
+    customer,
     description,
     smart,
     howToDemo,

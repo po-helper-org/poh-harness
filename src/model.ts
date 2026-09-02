@@ -47,6 +47,8 @@ export interface BftTaskSummary {
 
 /** Полная задача: то, что показывает превью и карточка. */
 export interface BftTask extends BftTaskSummary {
+  /** Заказчик инициативы: «ФИО (подразделение)». Живёт префиксом описания. */
+  customer?: string
   description: string
   smart?: string
   howToDemo: string[]
