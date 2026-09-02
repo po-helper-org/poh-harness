@@ -109,3 +109,83 @@ test('причину отмены берёт из заметок', () => {
 test('на мусорном вводе бросает понятную ошибку', () => {
   assert.throws(() => parseTaskView('что-то не то'), /не удалось разобрать задачу/)
 })
+
+test('CRLF-переводы строк не ломают разбор', () => {
+  const t = parseTaskView(FILLED.replace(/\n/g, '\r\n'))
+  assert.equal(t.id, 'PO-15')
+  assert.equal(t.stage, 'DEEP-DONE')
+  assert.equal(t.description, 'Live перестали поддерживать, виджет отстаёт.')
+  assert.equal(t.smart, 'К началу Q1 2027 ВК.Билеты работают на виджете Ticketland.')
+  assert.deepEqual(t.howToDemo, [
+    'Открываем VK',
+    'Жмём «Купить билет»',
+    'Открывается виджет Ticketland',
+  ])
+})
+
+test('CRLF в отменённой задаче: причина отмены не теряется', () => {
+  const t = parseTaskView(CANCELLED.replace(/\n/g, '\r\n'))
+  assert.equal(t.stage, 'Cancelled')
+  assert.equal(t.cancelReason, 'PoC отложен, решили не оформлять БФТ в этом квартале')
+})
+
+test('BOM в начале вывода не ломает разбор', () => {
+  const t = parseTaskView('﻿' + EMPTY)
+  assert.equal(t.id, 'PO-20')
+  assert.equal(t.title, 'Блокировка мест на схеме зала')
+})
+
+test('cancelReason заполняется только у стадии Cancelled', () => {
+  const DEEP_WORK_WITH_NOTES = `Task PO-30 - БФТ: Схема согласования БД
+==================================================
+
+Status: ○ DEEP-WORK
+Priority: High
+Type: bft
+
+Description:
+--------------------------------------------------
+Нужна схема согласования изменений в БД.
+
+Implementation Notes:
+--------------------------------------------------
+- Собрал контекст по схемам
+- TODO: дождаться ответа DBA
+`
+  const t = parseTaskView(DEEP_WORK_WITH_NOTES)
+  assert.equal(t.stage, 'DEEP-WORK')
+  assert.equal(t.cancelReason, undefined)
+})
+
+test('приоритет вне словаря приводится к medium', () => {
+  const UNKNOWN_PRIORITY = `Task PO-31 - БФТ: Что-то
+==================================================
+
+Status: ○ To Do
+Priority: Critical
+Type: bft
+
+Description:
+--------------------------------------------------
+Описание.
+`
+  const t = parseTaskView(UNKNOWN_PRIORITY)
+  assert.equal(t.priority, 'medium')
+})
+
+test('## SMART ищется только как отдельная строка-заголовок', () => {
+  const SMART_MID_SENTENCE = `Task PO-32 - БФТ: Что-то
+==================================================
+
+Status: ○ To Do
+Priority: Medium
+Type: bft
+
+Description:
+--------------------------------------------------
+Обсуждали, что ## SMART заполняем позже.
+`
+  const t = parseTaskView(SMART_MID_SENTENCE)
+  assert.equal(t.description, 'Обсуждали, что ## SMART заполняем позже.')
+  assert.equal(t.smart, undefined)
+})

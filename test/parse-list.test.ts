@@ -47,3 +47,17 @@ test('группу с неизвестной стадией пропускает
 test('пустой ввод даёт пустой список', () => {
   assert.deepEqual(parseTaskList(''), [])
 })
+
+test('CRLF-переводы строк не ломают разбор', () => {
+  const rows = parseTaskList('To Do:\r\n  [HIGH] [bft] PO-20 - БФТ: Название\r\n')
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].id, 'PO-20')
+  assert.equal(rows[0].stage, 'To Do')
+  assert.equal(rows[0].title, 'Название')
+})
+
+test('BOM в начале вывода не ломает разбор', () => {
+  const rows = parseTaskList('﻿To Do:\n  [HIGH] [bft] PO-20 - БФТ: Название\n')
+  assert.equal(rows.length, 1)
+  assert.equal(rows[0].id, 'PO-20')
+})

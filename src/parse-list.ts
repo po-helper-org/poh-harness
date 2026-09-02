@@ -13,10 +13,11 @@ const TITLE_PREFIX = /^БФТ:\s*/
  * Задачи не типа `bft` и группы вне канона игнорируются.
  */
 export function parseTaskList(stdout: string): BftTaskSummary[] {
+  const normalized = stdout.replace(/^﻿/, '').replace(/\r\n?/g, '\n')
   const out: BftTaskSummary[] = []
   let stage: BftStage | null = null
 
-  for (const line of stdout.split('\n')) {
+  for (const line of normalized.split('\n')) {
     const group = GROUP_RE.exec(line)
     if (group) {
       const name = group[1]
