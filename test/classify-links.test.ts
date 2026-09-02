@@ -43,3 +43,27 @@ test('при нескольких ссылках одного вида берё�
 test('пустой список даёт пустую структуру', () => {
   assert.deepEqual(classifyLinks([]), { other: [] })
 })
+
+test('confluence распознаётся по домену, а не по подстроке', () => {
+  const links = classifyLinks(['https://evil.example.com/?u=confluence.mts.ru'])
+  assert.equal(links.confluence, undefined)
+  assert.deepEqual(links.other, ['https://evil.example.com/?u=confluence.mts.ru'])
+})
+
+test('пустое значение okr: не теряет первую ссылку', () => {
+  const links = classifyLinks(['okr:', 'okr:strategy-2026q3-kr-1-6'])
+  assert.equal(links.okr, '')
+  assert.deepEqual(links.other, ['okr:strategy-2026q3-kr-1-6'])
+})
+
+test('пустая строка отбрасывается и не попадает в other', () => {
+  const links = classifyLinks(['   ', 'okr:strategy-2026q3-kr-1-6'])
+  assert.equal(links.okr, 'strategy-2026q3-kr-1-6')
+  assert.deepEqual(links.other, [])
+})
+
+test('html распознаётся независимо от регистра расширения', () => {
+  const links = classifyLinks(['.bft/documentation/x/y.HTML'])
+  assert.equal(links.html, '.bft/documentation/x/y.HTML')
+  assert.deepEqual(links.other, [])
+})
