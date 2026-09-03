@@ -61,3 +61,11 @@ test('BOM в начале вывода не ломает разбор', () => {
   assert.equal(rows.length, 1)
   assert.equal(rows[0].id, 'PO-20')
 })
+
+// === MINOR: config.taskType документирован и печатается в сводке, но не работает ===
+
+test('тип задач настраивается параметром, по умолчанию — «bft»', () => {
+  const stdout = 'To Do:\n  [HIGH] [chore] PO-5 - Хозяйственная задача\n  [HIGH] [bft] PO-20 - БФТ: Название\n'
+  assert.deepEqual(parseTaskList(stdout, 'chore').map(r => r.id), ['PO-5'])
+  assert.deepEqual(parseTaskList(stdout).map(r => r.id), ['PO-20'], 'без параметра умолчание — bft')
+})

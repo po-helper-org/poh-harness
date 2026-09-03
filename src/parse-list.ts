@@ -10,9 +10,11 @@ const TITLE_PREFIX = /^БФТ:\s*/
 /**
  * Разбирает вывод `backlog task list --plain`.
  * Стадия берётся из заголовка группы: сам по себе ряд её не содержит.
- * Задачи не типа `bft` и группы вне канона игнорируются.
+ * Задачи не типа `taskType` и группы вне канона игнорируются. Тип задаётся параметром, а не
+ * жёстко «bft», — `config.taskType` для того и существует, чтобы воркспейс мог называть свой
+ * тип требований иначе.
  */
-export function parseTaskList(stdout: string): BftTaskSummary[] {
+export function parseTaskList(stdout: string, taskType = 'bft'): BftTaskSummary[] {
   const normalized = stdout.replace(/^﻿/, '').replace(/\r\n?/g, '\n')
   const out: BftTaskSummary[] = []
   let stage: BftStage | null = null
@@ -27,7 +29,7 @@ export function parseTaskList(stdout: string): BftTaskSummary[] {
     if (!stage) continue
 
     const row = ROW_RE.exec(line)
-    if (!row || row[2] !== 'bft') continue
+    if (!row || row[2] !== taskType) continue
 
     out.push({
       id: row[3],

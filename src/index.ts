@@ -17,5 +17,9 @@ export {
   BftError,
   BacklogUnavailableError,
   BacklogFailedError,
+  BacklogTimeoutError,
   DocumentOutsideWorkspaceError,
+  DocumentUnreadableError,
+  InvalidTaskIdError,
+  TaskNotFoundError,
 } from './errors.js'

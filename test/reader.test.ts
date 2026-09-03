@@ -1,7 +1,17 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { mkdir, mkdtemp, symlink, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { BacklogReader } from '../src/reader.js'
-import { BacklogFailedError, BacklogUnavailableError } from '../src/errors.js'
+import {
+  BacklogFailedError,
+  BacklogTimeoutError,
+  BacklogUnavailableError,
+  DocumentUnreadableError,
+  InvalidTaskIdError,
+  TaskNotFoundError,
+} from '../src/errors.js'
 import type { CommandResult } from '../src/ports.js'
 import type { BftConfig } from '../src/config.js'
 
@@ -37,7 +47,7 @@ Description:
 `
 
 function ok(stdout: string): CommandResult {
-  return { stdout, stderr: '', code: 0 }
+  return { stdout, stderr: '', code: 0, timedOut: false, killedBySignal: null }
 }
 
 test('список задач разбирается и фильтруется по типу', async () => {
@@ -74,12 +84,15 @@ test('идентификатор задачи попадает в аргумен
     },
   })
   await reader.getTask('PO-20')
-  assert.deepEqual(seen, ['task', 'view', 'PO-20', '--plain'])
+  // ВНИМАНИЕ: ожидание намеренно изменено по находке IMPORTANT-2 (см. host-fix-report.md).
+  // `--` перед позиционным идентификатором защищает от разбора вида `backlog task view --help`,
+  // где идентификатор выглядел бы как флаг; было ['task', 'view', 'PO-20', '--plain'].
+  assert.deepEqual(seen, ['task', 'view', '--plain', '--', 'PO-20'])
 })
 
 test('отсутствие CLI даёт ошибку с подсказкой про установку', async () => {
   const reader = new BacklogReader(CONFIG, {
-    runCommand: async () => ({ stdout: '', stderr: 'spawn ENOENT', code: -1 }),
+    runCommand: async () => ({ stdout: '', stderr: 'spawn ENOENT', code: -1, timedOut: false, killedBySignal: null }),
   })
   await assert.rejects(() => reader.listTasks(), (e: Error) => {
     assert.ok(e instanceof BacklogUnavailableError)
@@ -90,7 +103,13 @@ test('отсутствие CLI даёт ошибку с подсказкой п�
 
 test('ненулевой код даёт ошибку с первой строкой stderr', async () => {
   const reader = new BacklogReader(CONFIG, {
-    runCommand: async () => ({ stdout: '', stderr: 'Task PO-99 not found\nтрассировка', code: 1 }),
+    runCommand: async () => ({
+      stdout: '',
+      stderr: 'Task PO-99 not found\nтрассировка',
+      code: 1,
+      timedOut: false,
+      killedBySignal: null,
+    }),
   })
   await assert.rejects(() => reader.getTask('PO-99'), (e: Error) => {
     assert.ok(e instanceof BacklogFailedError)
@@ -192,4 +211,145 @@ test('битая метка — null, а не исключение', async () =>
     readTextFile: async () => '{не json',
   })
   assert.equal(await reader.readLastSync(), null)
+})
+
+// === IMPORTANT 2: порт бросает на пользовательском вводе ===
+// Идентификатор задачи приходит от пользователя интерфейса, поэтому проверяется до похода в CLI:
+// `backlog task view --help --plain` тоже отвечает кодом 0, а мусорный идентификатор без проверки
+// дошёл бы до команды как есть.
+
+test('некорректный идентификатор задачи (пробел на конце) отвергается до обращения к CLI', async () => {
+  let called = false
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => {
+      called = true
+      return ok(VIEW)
+    },
+  })
+  await assert.rejects(() => reader.getTask('PO-1 '), (e: Error) => {
+    assert.ok(e instanceof InvalidTaskIdError)
+    assert.match(e.message, /PO-1/)
+    return true
+  })
+  assert.equal(called, false, 'CLI не должен вызываться для некорректного идентификатора')
+})
+
+test('идентификатор вида флага (--help) отвергается, а не уходит в CLI как позиционный аргумент', async () => {
+  let called = false
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => {
+      called = true
+      return ok(VIEW)
+    },
+  })
+  await assert.rejects(() => reader.getTask('--help'), InvalidTaskIdError)
+  assert.equal(called, false)
+})
+
+// === IMPORTANT 6: «задача не найдена» выпадает из таксономии ===
+// Живой `backlog task view PO-99999 --plain` отвечает кодом 0 и текстом «Task PO-99999 not found.» —
+// без явной проверки это ушло бы в parseTaskView как мусор и дало бы сырой Error разбора.
+
+test('отсутствующая задача даёт TaskNotFoundError, а не сырую ошибку разбора', async () => {
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => ({
+      stdout: '',
+      stderr: 'Task PO-99999 not found.',
+      code: 0,
+      timedOut: false,
+      killedBySignal: null,
+    }),
+  })
+  await assert.rejects(() => reader.getTask('PO-99999'), (e: Error) => {
+    assert.ok(e instanceof TaskNotFoundError)
+    assert.match(e.message, /PO-99999/)
+    return true
+  })
+})
+
+// === CRITICAL 1 (замыкание на уровне reader): таймаут не должен маскироваться под успех ===
+
+test('timedOut=true не принимается за чистый успех, даже если код 0', async () => {
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => ({
+      stdout: LIST.slice(0, 10),
+      stderr: '',
+      code: 0,
+      timedOut: true,
+      killedBySignal: null,
+    }),
+  })
+  await assert.rejects(() => reader.listTasks(), BacklogTimeoutError)
+})
+
+// === IMPORTANT 5: чтение файла глотает все ошибки подряд ===
+// Не-ENOENT ошибка порта не должна тихо превращаться в null на уровне reader.
+
+test('ошибка чтения документа не превращается в null', async () => {
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => ok(''),
+    readTextFile: async () => {
+      throw new DocumentUnreadableError('/w/.bft/documentation/x.html', 'EACCES')
+    },
+  })
+  await assert.rejects(() => reader.readDocument('.bft/documentation/x.html'), DocumentUnreadableError)
+})
+
+// === IMPORTANT 4: симлинк обходит защиту пути ===
+// Лексическая проверка смотрит на путь как на текст и не замечает симлинк, ведущий наружу
+// каталога документов. Настоящий воркспейс на диске нужен, потому что realpath разрешает
+// только реальные симлинки — подделкой порта это не проверить.
+
+test('симлинк внутри каталога документов, ведущий наружу воркспейса, отвергается', async () => {
+  const workspaceRoot = await mkdtemp(join(tmpdir(), 'bft-reader-ws-'))
+  const docsDir = join(workspaceRoot, '.bft', 'documentation')
+  await mkdir(docsDir, { recursive: true })
+
+  const secretDir = await mkdtemp(join(tmpdir(), 'bft-reader-secret-'))
+  const secretFile = join(secretDir, 'id_rsa')
+  await writeFile(secretFile, 'СЕКРЕТНЫЙ ПРИВАТНЫЙ КЛЮЧ', 'utf8')
+
+  const linkPath = join(docsDir, 'evil.html')
+  await symlink(secretFile, linkPath)
+
+  const config: BftConfig = { ...CONFIG, workspaceRoot }
+  // readTextFile намеренно НЕ подменяется: защита должна сработать на настоящем чтении,
+  // до того как содержимое секрета попадёт в CommandResult или в возвращаемое значение.
+  const reader = new BacklogReader(config, { runCommand: async () => ok('') })
+
+  await assert.rejects(
+    () => reader.readDocument('.bft/documentation/evil.html'),
+    (e: Error) => {
+      assert.ok(e instanceof DocumentOutsideWorkspaceError)
+      return true
+    },
+  )
+})
+
+// === MINOR: inside.startsWith('..') ложно отвергает легальный путь вида ..hidden/x.html ===
+
+test('документ с именем, начинающимся на две точки, но лежащим внутри каталога документов, читается', async () => {
+  const seen: string[] = []
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => ok(''),
+    readTextFile: async path => {
+      seen.push(path)
+      return '<html>легальный документ</html>'
+    },
+  })
+  const html = await reader.readDocument('.bft/documentation/..hidden/x.html')
+  assert.equal(html, '<html>легальный документ</html>')
+  assert.deepEqual(seen, ['/w/.bft/documentation/..hidden/x.html'])
+})
+
+// === MINOR: config.taskType документирован, но не работает ===
+
+test('listTasks использует тип задач из конфигурации, а не жёстко «bft»', async () => {
+  const stdout = 'To Do:\n  [HIGH] [chore] PO-5 - Хозяйственная задача\n  [HIGH] [bft] PO-20 - БФТ: Название\n'
+  const reader = new BacklogReader(
+    { ...CONFIG, taskType: 'chore' },
+    { runCommand: async () => ok(stdout) },
+  )
+  const tasks = await reader.listTasks()
+  assert.deepEqual(tasks.map(t => t.id), ['PO-5'])
 })
