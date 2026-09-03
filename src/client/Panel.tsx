@@ -38,6 +38,14 @@ import { panelClassNames as css } from './Panel.styles.js'
 /** Собственный business-face панели: всё остальное (open/close) несёт общий со кнопкой стор. */
 export interface RequirementsPanelInjected {
   listRequirements(signal: AbortSignal): Promise<RpcResult<unknown>>
+  /**
+   * Кнопка «Обновить»: цепочка connectWorkspace → scope → setDraft → open, собранная в
+   * src/client/index.tsx (docs/client-wiring.md, §1.3). Открывает чат с подставленной
+   * командой синка `/bft-needed-list` — без автоотправки, Enter жмёт PO. Промис отклоняется,
+   * если цепочка не собралась (служба недоступна, нет рабочего пространства, sessions.scope
+   * вернул undefined) — тогда панель остаётся открытой, см. onClick ниже.
+   */
+  openSyncChat(): Promise<void>
 }
 
 export type RequirementsPanelProps =
@@ -72,7 +80,7 @@ function toTaskSummaries(value: unknown): BftTaskSummary[] {
 }
 
 /** Панель раздела. Возвращает null, пока закрыта — тогда в оверлее нет узла, перехватывать нечего. */
-export function RequirementsPanel({ useStore, actions, listRequirements, t }: RequirementsPanelProps) {
+export function RequirementsPanel({ useStore, actions, listRequirements, openSyncChat, t }: RequirementsPanelProps) {
   const isOpen = useStore(state => state.open)
   const [state, setState] = useState<BodyState>({ phase: 'loading' })
   const [collapsed, setCollapsed] = useState<ReadonlySet<BftStage>>(() => new Set())
@@ -128,8 +136,17 @@ export function RequirementsPanel({ useStore, actions, listRequirements, t }: Re
           type="button"
           className={css.iconButton}
           aria-label={t('refresh')}
-          disabled={state.phase === 'loading'}
-          onClick={load}
+          onClick={() => {
+            // Цепочка сама открывает чат и не отправляет ничего (см. openSyncChat в
+            // src/client/index.tsx) — здесь только решаем, закрывать ли панель. Закрываем
+            // единственно по успеху: если цепочка не собралась (служба недоступна, нет
+            // рабочего пространства, sessions.scope вернул undefined), панель остаётся
+            // открытой, а не молча исчезает без результата.
+            void openSyncChat().then(
+              () => { actions.close() },
+              (error: unknown) => { console.error('[dsh-plugin-bft] sync chat:', error) },
+            )
+          }}
         >
           <RefreshIcon />
         </button>

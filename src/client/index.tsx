@@ -20,6 +20,17 @@ import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 // Type-only: даёт декларацию `ctx.locale` в `Context`.
 import type {} from '@deepseek-ai/dsh-client-locale/client'
+// Type-only: даёт декларацию `ctx.sessions` в `Context` + ISessions (цепочка запуска чата,
+// docs/client-wiring.md §1.2-1.3). Не в export const inject ниже — служба ленивая (см. openSyncChat).
+import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
+// Type-only: даёт декларацию `ctx.workspaces` в `Context` + IWorkspaces/WorkspaceId — те же типы,
+// которыми сам харнесс определяет цель в startSession (navigation.ts:114-127).
+import type { IWorkspaces, WorkspaceId } from '@deepseek-ai/dsh-api-workspace-controller/client'
+// Type-only: даёт декларацию `ctx.uiWorkspace` в `Context` — connectWorkspace(), единственный
+// вызов службы, который отдаёт SessionId (startSession этого не делает).
+import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
+// Type-only: даёт декларацию `ctx.conversation` в `Context` (SessionInputResolver.for(actx).setDraft).
+import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import { defineStore, type PropsStore, type StoreHandle } from '@deepseek-ai/dsh-client-store'
 import type { RpcResult } from '../channel.js'
@@ -41,6 +52,13 @@ const NS = 'bft.requirements'
  * `channel.test.ts`, дрейф от дублирования маловероятен.
  */
 const CHANNEL = '/bft'
+
+/**
+ * Черновик команды синка, который кнопка «Обновить» подставляет в чат (docs/client-wiring.md,
+ * «Выводы для реализации», п.1). Ровно текст — без автоотправки: Enter жмёт PO, submit()/
+ * conversation.send() эта кнопка не зовёт ни при каких условиях.
+ */
+const SYNC_COMMAND = '/bft-needed-list'
 
 export interface PanelState {
   open: boolean
@@ -118,6 +136,47 @@ export function apply(ctx: ClientContext): void {
   const listRequirements = (signal: AbortSignal): Promise<RpcResult<unknown>> =>
     connection.rpc.call(CHANNEL, 'list', {}, signal)
 
+  // Цепочка «Обновить» (docs/client-wiring.md, §1.3 и «Выводы для реализации», п.1):
+  // uiWorkspace.connectWorkspace → sessions.scope → conversation.input.for(actx).setDraft →
+  // sessions.open. Черновик кладём до открытия — оболочка ввода создаётся по запросу и
+  // владеет своим редактором (hub.ts:139-145), поэтому сессию не нужно заранее открывать
+  // и отрисовывать. Отправки нет ни при каких условиях: submit()/conversation.send() здесь
+  // не зовутся, Enter жмёт PO.
+  //
+  // Все четыре службы читаются лениво через ctx.get() ПРЯМО В МОМЕНТ НАЖАТИЯ, а не сохраняются
+  // в переменную здесь и не идут в export const inject: `inject` — жёсткое требование (падает
+  // весь клиентский boot, если служба не активна — harness-ui/packages/client/web/src/boot.ts:
+  // 137-157), а этот раздел без sessions/uiWorkspace/conversation/workspaces всё ещё
+  // осмыслен (список требований по-прежнему работает) — отсутствие любой из них должно
+  // деградировать саму кнопку, а не весь boot (см. приём dsh-plugin-subscriptions/src/client/
+  // index.ts:121-122 для `modelDirectories`).
+  const openSyncChat = async (): Promise<void> => {
+    const uiWorkspace = ctx.get('uiWorkspace')
+    const sessions = ctx.get('sessions')
+    const workspaces = ctx.get('workspaces')
+    const conversation = ctx.get('conversation')
+    if (uiWorkspace === undefined || sessions === undefined || workspaces === undefined || conversation === undefined) {
+      throw new Error(
+        'dsh-plugin-bft: sync chat unavailable — sessions/uiWorkspace/workspaces/conversation not provided',
+      )
+    }
+    const workspaceId = resolveWorkspaceId(sessions, workspaces)
+    if (workspaceId === undefined) {
+      throw new Error('dsh-plugin-bft: sync chat: no workspace to connect to')
+    }
+    // Только connectWorkspace возвращает SessionId — startSession() не годится, он ничего
+    // не отдаёт (docs/client-wiring.md, §1.3, п.1).
+    const sessionId = await uiWorkspace.connectWorkspace(workspaceId)
+    const actx = sessions.scope(sessionId)
+    // sessions.scope(id) отдаёт undefined для сессии, которой нет ни в списке, ни в скопах
+    // (contract/sessions.ts:103) — ветку обрабатываем, не проваливаемся в input.for() с ней.
+    if (actx === undefined) {
+      throw new Error(`dsh-plugin-bft: sync chat: sessions.scope(${sessionId}) returned no scope`)
+    }
+    conversation.input.for(actx).setDraft(SYNC_COMMAND)
+    sessions.open(sessionId)
+  }
+
   ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register(
     { name: 'sidebar.footer.action', id: 'bft-requirements', locale: NS, store: panelStore },
     RequirementsButton,
@@ -129,10 +188,46 @@ export function apply(ctx: ClientContext): void {
       id: 'bft-requirements',
       locale: NS,
       store: panelStore,
-      inject: (): RequirementsPanelInjected => ({ listRequirements }),
+      inject: (): RequirementsPanelInjected => ({ listRequirements, openSyncChat }),
     },
     RequirementsPanel,
   ))
+}
+
+/**
+ * Рабочее пространство для «Обновить» — тем же выводом, каким сам харнесс определяет цель в
+ * startSession (harness-ui/packages/client/ui-workspace/src/client/navigation.ts:114-127,
+ * см. docs/client-wiring.md §1.4): рабочее пространство текущей сессии, а если такой нет —
+ * самое недавно активное (по последней активности сессий, иначе по дате создания). Ни одного
+ * рабочего пространства вообще — undefined; openSyncChat тогда останавливается, не пытаясь
+ * подключиться вслепую. `sessions.clear()`, которым в этом случае заканчивается сам
+ * startSession, здесь не к месту — это навигационное поведение чужого сценария («открыть
+ * пустой экран нового чата»), а не часть синхронизации требований.
+ */
+function resolveWorkspaceId(sessions: ISessions, workspaces: IWorkspaces): WorkspaceId | undefined {
+  const sessionList = sessions.list.getSnapshot()
+  const workspaceList = workspaces.list.getSnapshot()
+  const current = sessionList.current
+  const currentWorkspaceId = current === undefined
+    ? undefined
+    : workspaceList.items.find(item => item.sessionIds.includes(current))?.workspaceId
+  if (currentWorkspaceId !== undefined) return currentWorkspaceId
+
+  let recent: WorkspaceId | undefined
+  let recentTime = Number.NEGATIVE_INFINITY
+  for (const item of workspaceList.items) {
+    let latest = Number.NEGATIVE_INFINITY
+    for (const sessionId of item.sessionIds) {
+      const session = sessionList.byId[sessionId]
+      if (session !== undefined) latest = Math.max(latest, session.updatedAt)
+    }
+    if (latest === Number.NEGATIVE_INFINITY) latest = Date.parse(item.createdAt)
+    if (recent === undefined || latest > recentTime) {
+      recent = item.workspaceId
+      recentTime = latest
+    }
+  }
+  return recent
 }
 
 /** Кнопка раздела в подвале левой панели: переключает общий с панелью стор видимости. */
