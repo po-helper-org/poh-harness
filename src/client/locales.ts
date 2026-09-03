@@ -8,6 +8,10 @@ export const en = {
   empty: 'No requirements yet',
   emptyHint: 'Run a sync to pull them from the initiatives table',
   retry: 'Retry',
+  searchPlaceholder: 'Search requirements',
+  searchClear: 'Clear search',
+  searchEmpty: 'Nothing found',
+  searchReset: 'Reset search',
 } satisfies Record<string, string>
 
 export const ru = {
@@ -19,6 +23,10 @@ export const ru = {
   empty: 'Требований пока нет',
   emptyHint: 'Запусти синхронизацию, чтобы подтянуть их из таблицы инициатив',
   retry: 'Повторить',
+  searchPlaceholder: 'Поиск по требованиям',
+  searchClear: 'Очистить поиск',
+  searchEmpty: 'Ничего не найдено',
+  searchReset: 'Сбросить поиск',
 } satisfies Record<keyof typeof en, string>
 
 export type BftLocaleKey = keyof typeof en

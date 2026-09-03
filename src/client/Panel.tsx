@@ -27,7 +27,7 @@ import type { PropsStore } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { RpcResult } from '../channel.js'
 import type { BftStage, BftTaskSummary } from '../model.js'
-import { queueGroups, type BftGroup } from '../queue.js'
+import { queueGroups, searchTasks, type BftGroup } from '../queue.js'
 // Type-only: PanelStoreHandle описывает форму стора, реальный хэндл создаётся в apply()
 // (src/client/index.tsx) и сюда не импортируется — только тип, значение не пересекает границу.
 import type { PanelStoreHandle } from './index.js'
@@ -84,6 +84,7 @@ export function RequirementsPanel({ useStore, actions, listRequirements, openSyn
   const isOpen = useStore(state => state.open)
   const [state, setState] = useState<BodyState>({ phase: 'loading' })
   const [collapsed, setCollapsed] = useState<ReadonlySet<BftStage>>(() => new Set())
+  const [query, setQuery] = useState('')
   const controllerRef = useRef<AbortController | null>(null)
 
   const load = useCallback(() => {
@@ -114,6 +115,14 @@ export function RequirementsPanel({ useStore, actions, listRequirements, openSyn
     return () => { controllerRef.current?.abort() }
   }, [isOpen, load])
 
+  // Свёрнутость групп и текст поиска — локальное состояние панели, не переживает закрытие:
+  // при следующем открытии список должен снова быть развёрнут и без старого фильтра.
+  useEffect(() => {
+    if (isOpen) return
+    setCollapsed(new Set())
+    setQuery('')
+  }, [isOpen])
+
   if (!isOpen) return null
 
   const toggleGroup = (stage: BftStage) => {
@@ -126,6 +135,16 @@ export function RequirementsPanel({ useStore, actions, listRequirements, openSyn
   }
 
   const badgeCount = state.phase === 'ready' ? state.total : state.phase === 'empty' ? 0 : undefined
+
+  // Фильтрация — по уже загруженному списку (searchTasks из ядра), без похода в канал.
+  // Пустые после фильтрации группы не показываются нулями — отбрасываются целиком.
+  const filteredGroups = state.phase === 'ready'
+    ? state.groups
+      .map(g => ({ stage: g.stage, tasks: searchTasks(g.tasks, query) }))
+      .filter(g => g.tasks.length > 0)
+    : []
+  const isSearching = state.phase === 'ready' && query.trim().length > 0
+  const noSearchResults = isSearching && filteredGroups.length === 0
 
   return (
     <aside className={css.panel} aria-label={t('panelTitle')}>
@@ -154,15 +173,51 @@ export function RequirementsPanel({ useStore, actions, listRequirements, openSyn
           <CloseIcon />
         </button>
       </div>
+      {state.phase === 'ready' && (
+        <SearchField
+          value={query}
+          onChange={setQuery}
+          placeholder={t('searchPlaceholder')}
+          clearLabel={t('searchClear')}
+        />
+      )}
       <div className={css.body}>
         {state.phase === 'loading' && <LoadingSkeleton label={t('loading')} />}
         {state.phase === 'error' && <ErrorState message={state.message} retryLabel={t('retry')} onRetry={load} />}
         {state.phase === 'empty' && <EmptyState title={t('empty')} hint={t('emptyHint')} />}
-        {state.phase === 'ready' && (
-          <GroupList groups={state.groups} collapsed={collapsed} onToggle={toggleGroup} />
+        {state.phase === 'ready' && noSearchResults && (
+          <SearchEmptyState title={t('searchEmpty')} resetLabel={t('searchReset')} onReset={() => { setQuery('') }} />
+        )}
+        {state.phase === 'ready' && !noSearchResults && (
+          <GroupList groups={filteredGroups} collapsed={collapsed} onToggle={toggleGroup} />
         )}
       </div>
     </aside>
+  )
+}
+
+function SearchField({ value, onChange, placeholder, clearLabel }: {
+  value: string
+  onChange: (value: string) => void
+  placeholder: string
+  clearLabel: string
+}) {
+  return (
+    <div className={css.searchRow}>
+      <span className={css.searchIcon} aria-hidden="true"><SearchIcon /></span>
+      <input
+        type="text"
+        className={css.searchInput}
+        placeholder={placeholder}
+        value={value}
+        onChange={(event) => { onChange(event.target.value) }}
+      />
+      {value.length > 0 && (
+        <button type="button" className={css.searchClear} aria-label={clearLabel} onClick={() => { onChange('') }}>
+          <CloseIcon />
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -240,6 +295,16 @@ function ErrorState({ message, retryLabel, onRetry }: { message: string; retryLa
   )
 }
 
+function SearchEmptyState({ title, resetLabel, onReset }: { title: string; resetLabel: string; onReset: () => void }) {
+  return (
+    <div className={css.stateBlock}>
+      <span className={css.stateIcon} aria-hidden="true"><EmptyIcon /></span>
+      <h3 className={css.stateTitle}>{title}</h3>
+      <button type="button" className={`${css.btn} ${css.btnOutline}`} onClick={onReset}>{resetLabel}</button>
+    </div>
+  )
+}
+
 function EmptyIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -280,6 +345,15 @@ function RefreshIcon() {
         strokeLinecap="round"
       />
       <path d="M13 2v3h-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function SearchIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+      <circle cx="6" cy="6" r="4.4" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M9.2 9.2 12 12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
   )
 }

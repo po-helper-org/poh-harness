@@ -58,6 +58,10 @@ export const panelClassNames = {
   skeletonHead: 'bft-skeleton-head',
   skeletonLine: 'bft-skeleton-line',
   skeletonBar: 'bft-skeleton-bar',
+  searchRow: 'bft-search-row',
+  searchIcon: 'bft-search-icon',
+  searchInput: 'bft-search-input',
+  searchClear: 'bft-search-clear',
 } as const
 
 const c = panelClassNames
@@ -131,6 +135,44 @@ export const panelStyleText = `
 }
 .${c.iconButton}:active { transform: scale(0.94); }
 .${c.iconButton}:disabled { opacity: 0.5; }
+
+/* Поле поиска: та же геометрия ряда, что и хедер, между ним и телом списка (Task 1). */
+.${c.searchRow} {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 12px 8px;
+  padding: 0 10px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--dsw-specific-selector);
+}
+.${c.searchIcon} { flex: none; display: grid; place-items: center; color: var(--dsw-alias-label-caption); }
+.${c.searchInput} {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+}
+.${c.searchInput}::placeholder { color: var(--dsw-alias-label-caption); }
+.${c.searchInput}:focus { outline: none; }
+.${c.searchClear} {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  color: var(--dsw-alias-label-caption);
+  transition: background-color var(--ds-transition-duration-fast) ease, color var(--ds-transition-duration-fast) ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .${c.searchClear}:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+}
 
 /* Тело панели: один и тот же контейнер (флекс-колонка со скроллом) для всех
    четырёх состояний, чтобы переход между ними не менял геометрию панели. */
