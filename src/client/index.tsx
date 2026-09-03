@@ -32,11 +32,16 @@ import type {} from '@deepseek-ai/dsh-client-ui-workspace/client'
 // Type-only: даёт декларацию `ctx.conversation` в `Context` (SessionInputResolver.for(actx).setDraft).
 import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
+// Иконка кнопки сайдбара: реальный набор харнесса, не hand-drawn SVG (Task 4 визуального
+// выравнивания) — пакет внешний (см. CLIENT_EXTERNALS в tsdown.config.ts), берётся у хоста
+// в рантайме, его CSS хост уже гарантированно загрузил (Button/иконки используются по всему
+// харнессу).
+import { IconChecklistOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { defineStore, type PropsStore, type StoreHandle } from '@deepseek-ai/dsh-client-store'
 import type { RpcResult } from '../channel.js'
 import { ru, type BftLocaleKey } from './locales.js'
 import { RequirementsPanel, type RequirementsPanelInjected } from './Panel.js'
-import { panelStyleText } from './Panel.styles.js'
+import { panelClassNames as css, panelStyleText } from './Panel.styles.js'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap { 'bft.requirements': BftLocaleKey }
@@ -247,12 +252,41 @@ function resolveWorkspaceId(sessions: ISessions, workspaces: IWorkspaces): Works
   return recent
 }
 
-/** Кнопка раздела в подвале левой панели: переключает общий с панелью стор видимости. */
-function RequirementsButton({ t, useStore, actions }: PropsStore<PanelStoreHandle> & { t: (key: BftLocaleKey) => string }) {
+/**
+ * Кнопка раздела в подвале левой панели: переключает общий с панелью стор видимости.
+ *
+ * Разметка и классы — дословный образец того же слота (`sidebar.footer.action`) у соседнего
+ * плагина харнесса ui-cordis: harness-ui/packages/extensions/ui-cordis/src/client/CordisPanel.tsx
+ * (~469-484) + CordisPanel.module.css (~3-80, классы .layer/.footerButtons/.badge/.badgeLabel/
+ * .layer.rail/.rail .badge/.rail .footerButtons, здесь — bft-nav-*, см. Panel.styles.ts). `wide` —
+ * часть SidebarFooterActionOwnerProps (owner-доля PropsRuntime<'sidebar.footer.action'>,
+ * harness-ui/packages/client/ui-sidebar/src/client/contract/slots.ts) — раньше принималась, но
+ * не использовалась; теперь переключает раскладку между широкой строкой (иконка + подпись) и
+ * узкой колонкой-рельсом (только круглая иконка 36×36), как у эталона. Счётчика («сколько
+ * запущено») у эталона (`badgeCount`) для «Требований» нет осмысленного аналога — не заводим.
+ * `data-active` — тот же смысл, что уже был у `aria-pressed` (кнопка-переключатель панели),
+ * `aria-pressed` остаётся для доступности отдельно от CSS-хука.
+ */
+function RequirementsButton({ t, useStore, actions, wide }: PropsStore<PanelStoreHandle> & {
+  t: (key: BftLocaleKey) => string
+  wide: boolean
+}) {
   const open = useStore(state => state.open)
   return (
-    <button type="button" aria-pressed={open} onClick={() => { actions.toggle() }}>
-      {t('nav')}
-    </button>
+    <div className={wide ? css.navLayer : `${css.navLayer} ${css.navRail}`}>
+      <div className={css.navFooterButtons}>
+        <button
+          type="button"
+          className={css.navBadge}
+          data-active={open || undefined}
+          aria-pressed={open}
+          aria-label={t('nav')}
+          onClick={() => { actions.toggle() }}
+        >
+          <IconChecklistOutline14 size={wide ? 16 : 18} />
+          {wide && <span className={css.navBadgeLabel}>{t('nav')}</span>}
+        </button>
+      </div>
+    </div>
   )
 }

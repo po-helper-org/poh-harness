@@ -24,6 +24,15 @@
 import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import type { PropsStore } from '@deepseek-ai/dsh-client-store'
+// Реальные компонент кнопки и иконки харнесса (Task 4 визуального выравнивания) вместо
+// hand-drawn inline SVG и локальных .btn/.btnOutline: пакет внешний (см. CLIENT_EXTERNALS в
+// tsdown.config.ts), берётся у хоста в рантайме вместе с уже загруженным им CSS.
+// IconArchiveOutline20 — «пусто»/«ничего не найдено» (архивная коробка, ближайшее совпадение
+// из полного набора icons/index.tsx — точного «empty state» глифа там нет, см. отчёт задачи).
+// IconRefreshOutline16 и IconSearchOutline16/IconCloseOutline16 — прямое совпадение по смыслу.
+import {
+  Button, IconArchiveOutline20, IconCloseOutline16, IconRefreshOutline16, IconSearchOutline16, IconWarningOutline16,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { RpcResult } from '../channel.js'
 import type { BftStage } from '../model.js'
@@ -281,10 +290,10 @@ export function RequirementsPanel({
             )
           }}
         >
-          <RefreshIcon />
+          <IconRefreshOutline16 size={16} />
         </button>
         <button type="button" className={css.iconButton} aria-label={t('close')} onClick={() => { actions.close() }}>
-          <CloseIcon />
+          <IconCloseOutline16 size={14} />
         </button>
       </div>
       {state.phase === 'ready' && (
@@ -316,14 +325,9 @@ export function RequirementsPanel({
           открывается своим независимым запросом (Board.tsx), ей не важно, что успел или не
           успел загрузить список панели. */}
       <div className={css.panelFooter}>
-        <button
-          type="button"
-          className={`${css.btn} ${css.btnOutline}`}
-          style={{ width: '100%' }}
-          onClick={() => { setRoute({ view: 'board' }) }}
-        >
+        <Button variant="outline" className={css.fullWidth} onClick={() => { setRoute({ view: 'board' }) }}>
           {t('boardOpen')}
-        </button>
+        </Button>
       </div>
     </aside>
   )
@@ -337,7 +341,7 @@ function SearchField({ value, onChange, placeholder, clearLabel }: {
 }) {
   return (
     <div className={css.searchRow}>
-      <span className={css.searchIcon} aria-hidden="true"><SearchIcon /></span>
+      <span className={css.searchIcon} aria-hidden="true"><IconSearchOutline16 size={14} /></span>
       <input
         type="text"
         className={css.searchInput}
@@ -347,7 +351,7 @@ function SearchField({ value, onChange, placeholder, clearLabel }: {
       />
       {value.length > 0 && (
         <button type="button" className={css.searchClear} aria-label={clearLabel} onClick={() => { onChange('') }}>
-          <CloseIcon />
+          <IconCloseOutline16 size={14} />
         </button>
       )}
     </div>
@@ -419,7 +423,7 @@ function LoadingSkeleton({ label }: { label: string }) {
 function EmptyState({ title, hint }: { title: string; hint: string }) {
   return (
     <div className={css.stateBlock}>
-      <span className={css.stateIcon} aria-hidden="true"><EmptyIcon /></span>
+      <span className={css.stateIcon} aria-hidden="true"><IconArchiveOutline20 size={20} /></span>
       <h3 className={css.stateTitle}>{title}</h3>
       <p className={css.stateHint}>{hint}</p>
     </div>
@@ -429,9 +433,9 @@ function EmptyState({ title, hint }: { title: string; hint: string }) {
 function ErrorState({ message, retryLabel, onRetry }: { message: string; retryLabel: string; onRetry: () => void }) {
   return (
     <div className={css.stateBlock}>
-      <span className={css.stateIcon} data-tone="error" aria-hidden="true"><ErrorIcon /></span>
+      <span className={css.stateIcon} data-tone="error" aria-hidden="true"><IconWarningOutline16 size={20} /></span>
       <p className={css.stateMessage}>{message}</p>
-      <button type="button" className={`${css.btn} ${css.btnOutline}`} onClick={() => { onRetry() }}>{retryLabel}</button>
+      <Button variant="outline" onClick={() => { onRetry() }}>{retryLabel}</Button>
     </div>
   )
 }
@@ -439,70 +443,9 @@ function ErrorState({ message, retryLabel, onRetry }: { message: string; retryLa
 function SearchEmptyState({ title, resetLabel, onReset }: { title: string; resetLabel: string; onReset: () => void }) {
   return (
     <div className={css.stateBlock}>
-      <span className={css.stateIcon} aria-hidden="true"><EmptyIcon /></span>
+      <span className={css.stateIcon} aria-hidden="true"><IconArchiveOutline20 size={20} /></span>
       <h3 className={css.stateTitle}>{title}</h3>
-      <button type="button" className={`${css.btn} ${css.btnOutline}`} onClick={onReset}>{resetLabel}</button>
+      <Button variant="outline" onClick={onReset}>{resetLabel}</Button>
     </div>
-  )
-}
-
-function EmptyIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <path d="M3 8.5 5 3h10l2 5.5" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-      <path
-        d="M3 8.5h4.2c.3 0 .5.2.6.4l.4 1c.1.3.4.5.7.5h2.2c.3 0 .6-.2.7-.5l.4-1c.1-.2.3-.4.6-.4H17"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M3 8.5v6A1.5 1.5 0 0 0 4.5 16h11a1.5 1.5 0 0 0 1.5-1.5v-6"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinejoin="round"
-      />
-    </svg>
-  )
-}
-
-function ErrorIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <circle cx="10" cy="10" r="7.3" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M10 6.2v4.4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      <circle cx="10" cy="13.4" r="0.9" fill="currentColor" />
-    </svg>
-  )
-}
-
-function RefreshIcon() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <path
-        d="M13 4.5A5.5 5.5 0 1 0 14.2 9"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinecap="round"
-      />
-      <path d="M13 2v3h-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function SearchIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <circle cx="6" cy="6" r="4.4" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M9.2 9.2 12 12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function CloseIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <path d="M2.5 2.5 11.5 11.5M11.5 2.5 2.5 11.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
   )
 }

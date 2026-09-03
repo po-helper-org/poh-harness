@@ -20,6 +20,11 @@
  * не универсальное поле, у остальных стадий её в принципе не бывает (см. parse-view.ts).
  */
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+// Реальные компонент кнопки и иконки харнесса (Task 4 визуального выравнивания) вместо
+// hand-drawn inline SVG и локальных .btn/.btnOutline/.btnPrimary — см. Panel.tsx.
+import {
+  Button, IconChevronLeftOutline14, IconCloseOutline16, IconWarningOutline16,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { RpcResult } from '../channel.js'
 import type { BftTask } from '../model.js'
 import type { BftLocaleKey } from './locales.js'
@@ -129,11 +134,11 @@ export function Preview({ id, t, getTask, openChatWithDraft, onOpenDetail, onBac
     <>
       <div className={css.header}>
         <button type="button" className={css.iconButton} aria-label={t('previewBack')} onClick={onBack}>
-          <BackIcon />
+          <IconChevronLeftOutline14 size={14} />
         </button>
         <h2>{t('previewHeaderTitle')}</h2>
         <button type="button" className={css.iconButton} aria-label={t('close')} onClick={onClose}>
-          <CloseIcon />
+          <IconCloseOutline16 size={14} />
         </button>
       </div>
       {/* Ровно один растущий (flex:1) контейнер тела на состояние — .body для загрузки/ошибки,
@@ -148,20 +153,16 @@ export function Preview({ id, t, getTask, openChatWithDraft, onOpenDetail, onBac
           )}
           {state.phase === 'error' && state.code === 'task-not-found' && (
             <div className={css.stateBlock}>
-              <span className={css.stateIcon} data-tone="error" aria-hidden="true"><ErrorIcon /></span>
+              <span className={css.stateIcon} data-tone="error" aria-hidden="true"><IconWarningOutline16 size={20} /></span>
               <p className={css.stateMessage}>{t('previewTaskNotFound')}</p>
-              <button type="button" className={`${css.btn} ${css.btnOutline}`} onClick={onBack}>
-                {t('previewBack')}
-              </button>
+              <Button variant="outline" onClick={onBack}>{t('previewBack')}</Button>
             </div>
           )}
           {state.phase === 'error' && state.code !== 'task-not-found' && (
             <div className={css.stateBlock}>
-              <span className={css.stateIcon} data-tone="error" aria-hidden="true"><ErrorIcon /></span>
+              <span className={css.stateIcon} data-tone="error" aria-hidden="true"><IconWarningOutline16 size={20} /></span>
               <p className={css.stateMessage}>{state.code === 'parse-error' ? t('previewParseError') : state.message}</p>
-              <button type="button" className={`${css.btn} ${css.btnOutline}`} onClick={load}>
-                {t('previewRetry')}
-              </button>
+              <Button variant="outline" onClick={load}>{t('previewRetry')}</Button>
             </div>
           )}
         </div>
@@ -170,22 +171,17 @@ export function Preview({ id, t, getTask, openChatWithDraft, onOpenDetail, onBac
         <>
           <ReadyBody task={state.task} t={t} />
           <div className={css.previewFooter}>
-            <button
-              type="button"
-              className={`${css.btn} ${css.btnPrimary}`}
-              style={{ flex: 1 }}
+            <Button
+              variant="primary"
+              className={css.flexGrow}
               disabled={chatPending}
               onClick={() => { handleChat(state.task) }}
             >
               {t('previewChat')}
-            </button>
-            <button
-              type="button"
-              className={`${css.btn} ${css.btnOutline}`}
-              onClick={() => { onOpenDetail(state.task.id) }}
-            >
+            </Button>
+            <Button variant="outline" onClick={() => { onOpenDetail(state.task.id) }}>
               {t('previewDetail')}
-            </button>
+            </Button>
           </div>
         </>
       )}
@@ -271,31 +267,5 @@ function ReadyBody({ task, t }: { task: BftTask; t: (key: BftLocaleKey) => strin
         </div>
       ))}
     </div>
-  )
-}
-
-function BackIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <path d="M8.5 2.5 3 7l5.5 4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function CloseIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <path d="M2.5 2.5 11.5 11.5M11.5 2.5 2.5 11.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
-  )
-}
-
-function ErrorIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <circle cx="10" cy="10" r="7.3" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M10 6.2v4.4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      <circle cx="10" cy="13.4" r="0.9" fill="currentColor" />
-    </svg>
   )
 }

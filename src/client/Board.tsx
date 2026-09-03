@@ -24,6 +24,9 @@
  * DetailPage.tsx) — доске не нужно ничего готовить заранее.
  */
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+// Реальные компонент кнопки и иконки харнесса (Task 4 визуального выравнивания) вместо
+// hand-drawn inline SVG и локальных .btn/.btnOutline — см. Panel.tsx.
+import { Button, IconChevronLeftOutline14, IconWarningOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { RpcResult } from '../channel.js'
 import { boardColumns, type BftGroup } from '../queue.js'
 import type { BftLocaleKey } from './locales.js'
@@ -102,7 +105,7 @@ export function Board({ t, listRequirements, onOpenDetail, onBack }: BoardProps)
     <div className={css.detailPage}>
       <div className={css.header}>
         <button type="button" className={css.iconButton} aria-label={t('detailBack')} onClick={onBack}>
-          <BackIcon />
+          <IconChevronLeftOutline14 size={14} />
         </button>
         <h2>{t('boardHeaderTitle')}</h2>
       </div>
@@ -116,11 +119,9 @@ export function Board({ t, listRequirements, onOpenDetail, onBack }: BoardProps)
           )}
           {state.phase === 'error' && (
             <div className={css.stateBlock}>
-              <span className={css.stateIcon} data-tone="error" aria-hidden="true"><ErrorIcon /></span>
+              <span className={css.stateIcon} data-tone="error" aria-hidden="true"><IconWarningOutline16 size={20} /></span>
               <p className={css.stateMessage}>{state.message}</p>
-              <button type="button" className={`${css.btn} ${css.btnOutline}`} onClick={() => { load() }}>
-                {t('retry')}
-              </button>
+              <Button variant="outline" onClick={() => { load() }}>{t('retry')}</Button>
             </div>
           )}
         </div>
@@ -171,23 +172,5 @@ function BoardColumn({ group, onSelect }: { group: BftGroup; onSelect: (id: stri
         ))}
       </div>
     </section>
-  )
-}
-
-function BackIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <path d="M8.5 2.5 3 7l5.5 4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function ErrorIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <circle cx="10" cy="10" r="7.3" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M10 6.2v4.4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      <circle cx="10" cy="13.4" r="0.9" fill="currentColor" />
-    </svg>
   )
 }

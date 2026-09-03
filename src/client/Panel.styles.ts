@@ -47,8 +47,11 @@ export const panelClassNames = {
   item: 'bft-item',
   itemBody: 'bft-item-body',
   itemId: 'bft-item-id',
-  btn: 'bft-btn',
-  btnOutline: 'bft-btn-outline',
+  // Утилитарные классы под настоящий <Button> из @deepseek-ai/dsh-client-ui-primitives (Task 4
+  // визуального выравнивания): раньше нестандартная ширина/рост кнопки накручивались инлайн-style
+  // поверх .bft-btn, Button принимает только className — эти два класса передаются туда же.
+  fullWidth: 'bft-full-width',
+  flexGrow: 'bft-flex-grow',
   stateBlock: 'bft-state-block',
   stateIcon: 'bft-state-icon',
   stateTitle: 'bft-state-title',
@@ -73,7 +76,6 @@ export const panelClassNames = {
   previewLink: 'bft-preview-link',
   previewList: 'bft-preview-list',
   previewFooter: 'bft-preview-footer',
-  btnPrimary: 'bft-btn-primary',
   // Детальная страница (Task 3): полноэкранная поверх приложения, тот же приём соседней панели
   // Cordis, что описан в DetailPage.tsx — не второй слот shell.overlay. Шапка и состояния
   // загрузки/ошибки переиспользуют header/iconButton/stateBlock/btn* выше; свои классы — только
@@ -85,7 +87,8 @@ export const panelClassNames = {
   detailFrame: 'bft-detail-frame',
   detailTextarea: 'bft-detail-textarea',
   // Футер списка панели (Task 4): держит кнопку «Статус проработки» вне скроллящегося
-  // .body — сама кнопка переиспользует .btn/.btnOutline выше, здесь только контейнер-полоска.
+  // .body — сама кнопка теперь настоящий <Button variant="outline"> (Task 4 визуального
+  // выравнивания, см. Panel.tsx), здесь только контейнер-полоска.
   panelFooter: 'bft-panel-footer',
   // Доска по стадиям (Task 4): полноэкранная страница переиспользует .detailPage/.header/
   // .iconButton (Task 3) и .groupDot/.groupLabel/.badge/.item/.itemBody/.itemId списка панели
@@ -95,6 +98,18 @@ export const panelClassNames = {
   boardColumn: 'bft-board-column',
   boardColumnHeader: 'bft-board-column-header',
   boardColumnBody: 'bft-board-column-body',
+  // Кнопка раздела в подвале сайдбара (sidebar.footer.action, index.tsx: RequirementsButton) —
+  // геометрия и имена классов скопированы 1:1 с эталона того же слота, соседнего плагина
+  // харнесса ui-cordis: harness-ui/packages/extensions/ui-cordis/src/client/CordisPanel.tsx
+  // (~469-484, div.footerButtons > button.badge) и CordisPanel.module.css (~3-80: .layer/
+  // .footerButtons/.badge/.badgeLabel/.layer.rail/.rail .badge/.rail .footerButtons). У нас нет
+  // аналога «счётчика бегущих плагинов» (badgeCount эталона) — свой badgeCount не заводим (см.
+  // отчёт).
+  navLayer: 'bft-nav-layer',
+  navRail: 'bft-nav-rail',
+  navFooterButtons: 'bft-nav-footer-buttons',
+  navBadge: 'bft-nav-badge',
+  navBadgeLabel: 'bft-nav-badge-label',
 } as const
 
 const c = panelClassNames
@@ -153,6 +168,11 @@ export const panelStyleText = `
   font-variant-numeric: tabular-nums;
 }
 
+/* Геометрия и цвет — дословно харнесс-эталон мелкой круглой icon-button (Task 4 визуального
+   выравнивания): harness-ui/packages/client/ui-settings-general/src/client/SettingsRoot.module.css,
+   класс .close (~строка 202). Единственное отличие от эталона было в цвете (у нас был
+   --dsw-alias-label-tertiary с переходом в primary на hover) — поправлено на постоянный primary,
+   как в эталоне; hover/28px/radius:999px≈circle геометрия уже совпадала и не менялась. */
 .${c.iconButton} {
   flex: none;
   width: 28px;
@@ -160,11 +180,11 @@ export const panelStyleText = `
   border-radius: 999px;
   display: grid;
   place-items: center;
-  color: var(--dsw-alias-label-tertiary);
-  transition: background-color var(--ds-transition-duration-fast) ease, color var(--ds-transition-duration-fast) ease;
+  color: var(--dsw-alias-label-primary);
+  transition: background-color var(--ds-transition-duration-fast) ease;
 }
 @media (hover: hover) and (pointer: fine) {
-  .${c.iconButton}:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+  .${c.iconButton}:hover { background: var(--dsw-alias-interactive-bg-hover); }
 }
 .${c.iconButton}:active { transform: scale(0.94); }
 .${c.iconButton}:disabled { opacity: 0.5; }
@@ -269,22 +289,16 @@ export const panelStyleText = `
 .${c.itemBody} { flex: 1; min-width: 0; font-size: 13px; line-height: 19px; overflow-wrap: anywhere; }
 .${c.itemId} { display: block; margin-top: 2px; font: 11px/15px var(--ds-font-family-code); color: var(--dsw-alias-label-caption); }
 
-/* Кнопки: геометрия и обводка — как .btn/.btn-outline прототипа. */
-.${c.btn} {
-  flex: none;
-  height: 36px;
-  padding: 0 14px;
-  border-radius: 18px;
-  font-size: 14px;
-  line-height: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color var(--ds-transition-duration-fast) ease, transform var(--ds-transition-duration-fast) ease;
-}
-.${c.btn}:active { transform: scale(0.97); }
-.${c.btnOutline} { box-shadow: 0 0 0 0.5px var(--dsw-alias-border-l3); }
-@media (hover: hover) and (pointer: fine) { .${c.btnOutline}:hover { background: var(--dsw-alias-interactive-bg-hover); } }
+/* Кнопки-действия («Повторить», «Работать в чате», «Создать документ» и т.п.) — настоящий
+   <Button> из @deepseek-ai/dsh-client-ui-primitives (Task 4 визуального выравнивания), не
+   локальные .btn/.btn-outline/.btn-primary: тот компонент уже несёт капсульную геометрию и
+   цвета вариантов на токенах --dsw-alias-button-* (harness-ui/packages/client/ui-primitives/src/
+   Button.module.css) и подгружен хостом рантаймом (пакет внешний, см. CLIENT_EXTERNALS в
+   tsdown.config.ts пакета) — свой CSS для этого заводить незачем. Здесь остаются только два
+   утилитарных класса под инлайн-style, который раньше накручивался поверх .btn (width:100%/
+   flex:1) — Button принимает className, но не style-параметры геометрии контейнера. */
+.${c.fullWidth} { width: 100%; }
+.${c.flexGrow} { flex: 1; }
 
 /* Пусто / ошибка: общая геометрия центрированного блока в теле панели. */
 .${c.stateBlock} { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 46px 24px; text-align: center; }
@@ -365,11 +379,6 @@ export const panelStyleText = `
   padding: 10px 12px 12px;
   border-top: 0.5px solid var(--dsw-alias-border-l1);
 }
-
-/* .btn-primary — Button.module.css прототипа: заливка для главного действия превью,
-   ".btn"/.btn-outline" уже несёт остальную геометрию кнопки (см. выше). */
-.${c.btnPrimary} { background: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-foreground); }
-@media (hover: hover) and (pointer: fine) { .${c.btnPrimary}:hover { background: var(--dsw-alias-button-primary-hover); } }
 
 /* Детальная страница (Task 3, DetailPage.tsx): полноэкранный корень поверх всего приложения,
    не привязан к геометрии .panel (которая держится правого края и своей ширины) — здесь
@@ -504,5 +513,82 @@ export const panelStyleText = `
   overflow-y: auto;
   display: flex;
   flex-direction: column;
+}
+
+/* Кнопка раздела в подвале сайдбара (sidebar.footer.action, index.tsx: RequirementsButton).
+   Значения — дословно с эталона того же слота, соседнего плагина харнесса ui-cordis:
+   harness-ui/packages/extensions/ui-cordis/src/client/CordisPanel.module.css (~строки 3-80,
+   классы .layer/.footerButtons/.badge/.badgeLabel/.layer.rail/.rail .badge/.rail .footerButtons),
+   переименованы под наш префикс bft-nav-*, ничего не досочинено. У badge эталона есть ещё
+   .badgeCount (счётчик бегущих плагинов) — у «Требований» нет осмысленного числа для этого места
+   (не выдумываем метрику, см. отчёт), поэтому .bft-nav-badge-count здесь не заведён. */
+.${c.navLayer} {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 42px;
+  margin: 8px 0 0;
+}
+
+.${c.navFooterButtons} {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.${c.navBadge} {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: calc(100% + 4px);
+  height: 42px;
+  margin: 0 -2px;
+  padding: 0 10px 0 8px;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--dsw-alias-label-primary);
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.${c.navBadge}:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.${c.navBadge}[data-active] {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.${c.navBadgeLabel} {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.${c.navLayer}.${c.navRail} {
+  width: 36px;
+  height: 36px;
+  margin: 0;
+}
+
+.${c.navRail} .${c.navBadge} {
+  justify-content: center;
+  gap: 0;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  corner-shape: round;
+}
+
+.${c.navRail} .${c.navFooterButtons} {
+  flex-direction: column;
+  gap: 2px;
 }
 `

@@ -17,6 +17,13 @@
  * Preview.tsx для `task`.
  */
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+// Реальные компонент кнопки и иконки харнесса (Task 4 визуального выравнивания) вместо
+// hand-drawn inline SVG и локальных .btn/.btnOutline/.btnPrimary — см. Panel.tsx. IconCodeOutline16
+// для «нет документа»: наш документ требования — HTML-артефакт (links.html), а в наборе икон нет
+// прямого «пустой документ» глифа — код-иконка ближе всего к «здесь мог бы быть HTML» смыслу.
+import {
+  Button, IconChevronLeftOutline14, IconCodeOutline16, IconWarningOutline16,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { RpcResult } from '../channel.js'
 import type { BftTask } from '../model.js'
 import type { BftLocaleKey } from './locales.js'
@@ -176,7 +183,7 @@ export function DetailPage({ id, t, getTask, getDocument, openChatWithDraft, onB
     <div className={css.detailPage}>
       <div className={css.header}>
         <button type="button" className={css.iconButton} aria-label={t('detailBack')} onClick={onBack}>
-          <BackIcon />
+          <IconChevronLeftOutline14 size={14} />
         </button>
         {taskState.phase === 'ready'
           ? (
@@ -197,22 +204,18 @@ export function DetailPage({ id, t, getTask, getDocument, openChatWithDraft, onB
           )}
           {taskState.phase === 'error' && taskState.code === 'task-not-found' && (
             <div className={css.stateBlock}>
-              <span className={css.stateIcon} data-tone="error" aria-hidden="true"><ErrorIcon /></span>
+              <span className={css.stateIcon} data-tone="error" aria-hidden="true"><IconWarningOutline16 size={20} /></span>
               <p className={css.stateMessage}>{t('previewTaskNotFound')}</p>
-              <button type="button" className={`${css.btn} ${css.btnOutline}`} onClick={onBack}>
-                {t('detailBack')}
-              </button>
+              <Button variant="outline" onClick={onBack}>{t('detailBack')}</Button>
             </div>
           )}
           {taskState.phase === 'error' && taskState.code !== 'task-not-found' && (
             <div className={css.stateBlock}>
-              <span className={css.stateIcon} data-tone="error" aria-hidden="true"><ErrorIcon /></span>
+              <span className={css.stateIcon} data-tone="error" aria-hidden="true"><IconWarningOutline16 size={20} /></span>
               <p className={css.stateMessage}>
                 {taskState.code === 'parse-error' ? t('previewParseError') : taskState.message}
               </p>
-              <button type="button" className={`${css.btn} ${css.btnOutline}`} onClick={loadTask}>
-                {t('previewRetry')}
-              </button>
+              <Button variant="outline" onClick={loadTask}>{t('previewRetry')}</Button>
             </div>
           )}
         </div>
@@ -223,17 +226,12 @@ export function DetailPage({ id, t, getTask, getDocument, openChatWithDraft, onB
           <div className={css.detailLeft}>
             {(docState.phase === 'none' || docState.phase === 'missing') && (
               <div className={css.stateBlock}>
-                <span className={css.stateIcon} aria-hidden="true"><DocIcon /></span>
+                <span className={css.stateIcon} aria-hidden="true"><IconCodeOutline16 size={20} /></span>
                 <h3 className={css.stateTitle}>{t('detailNoDocument')}</h3>
                 <p className={css.stateHint}>{t('detailNoDocumentHint')}</p>
-                <button
-                  type="button"
-                  className={`${css.btn} ${css.btnPrimary}`}
-                  disabled={chatPending}
-                  onClick={() => { handleCreateDocument(taskState.task) }}
-                >
+                <Button variant="primary" disabled={chatPending} onClick={() => { handleCreateDocument(taskState.task) }}>
                   {t('detailCreateDocument')}
-                </button>
+                </Button>
               </div>
             )}
             {docState.phase === 'loading' && (
@@ -243,11 +241,9 @@ export function DetailPage({ id, t, getTask, getDocument, openChatWithDraft, onB
             )}
             {docState.phase === 'error' && (
               <div className={css.stateBlock}>
-                <span className={css.stateIcon} data-tone="error" aria-hidden="true"><ErrorIcon /></span>
+                <span className={css.stateIcon} data-tone="error" aria-hidden="true"><IconWarningOutline16 size={20} /></span>
                 <p className={css.stateMessage}>{docState.message}</p>
-                <button type="button" className={`${css.btn} ${css.btnOutline}`} onClick={loadDoc}>
-                  {t('retry')}
-                </button>
+                <Button variant="outline" onClick={loadDoc}>{t('retry')}</Button>
               </div>
             )}
             {docState.phase === 'ready' && (
@@ -331,48 +327,9 @@ function DetailSidebar({ task, t, promptText, onPromptChange, chatPending, onSen
           onChange={(event) => { onPromptChange(event.target.value) }}
         />
       </div>
-      <button
-        type="button"
-        className={`${css.btn} ${css.btnPrimary}`}
-        style={{ width: '100%' }}
-        disabled={chatPending}
-        onClick={onSend}
-      >
+      <Button variant="primary" className={css.fullWidth} disabled={chatPending} onClick={onSend}>
         {t('detailMiniPromptSend')}
-      </button>
+      </Button>
     </div>
-  )
-}
-
-function BackIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-      <path d="M8.5 2.5 3 7l5.5 4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  )
-}
-
-function ErrorIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <circle cx="10" cy="10" r="7.3" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M10 6.2v4.4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-      <circle cx="10" cy="13.4" r="0.9" fill="currentColor" />
-    </svg>
-  )
-}
-
-function DocIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <path
-        d="M6 2.5h5.5L15 6v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1Z"
-        stroke="currentColor"
-        strokeWidth="1.4"
-        strokeLinejoin="round"
-      />
-      <path d="M11.3 2.5V6H15" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
-      <path d="M7 10.5h6M7 13.2h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
   )
 }
