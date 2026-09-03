@@ -26,7 +26,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import type { PropsStore } from '@deepseek-ai/dsh-client-store'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { RpcResult } from '../channel.js'
-import type { BftStage, BftTaskSummary } from '../model.js'
+import type { BftStage } from '../model.js'
 import { queueGroups, searchTasks, type BftGroup } from '../queue.js'
 // Type-only: PanelStoreHandle описывает форму стора, реальный хэндл создаётся в apply()
 // (src/client/index.tsx) и сюда не импортируется — только тип, значение не пересекает границу.
@@ -38,6 +38,7 @@ import { DetailPage } from './DetailPage.js'
 import { panelClassNames as css } from './Panel.styles.js'
 import { Preview } from './Preview.js'
 import { STAGE_TONE } from './stage-tone.js'
+import { readTaskCache, toTaskSummaries, writeTaskCache } from './task-cache.js'
 
 /** Собственный business-face панели: всё остальное (open/close) несёт общий со кнопкой стор. */
 export interface RequirementsPanelInjected {
@@ -73,14 +74,6 @@ type BodyState =
   | { phase: 'ready'; groups: BftGroup[]; total: number }
   | { phase: 'empty' }
   | { phase: 'error'; message: string }
-
-function toTaskSummaries(value: unknown): BftTaskSummary[] {
-  if (!Array.isArray(value)) {
-    console.error('[dsh-plugin-bft] list ответил не массивом:', value)
-    return []
-  }
-  return value as BftTaskSummary[]
-}
 
 /**
  * Куда возвращает стрелка «← Назад» детальной страницы (route.view === 'detail' ниже): до
@@ -120,7 +113,18 @@ export function RequirementsPanel({
   t,
 }: RequirementsPanelProps) {
   const isOpen = useStore(state => state.open)
-  const [state, setState] = useState<BodyState>({ phase: 'loading' })
+  // Кэш localStorage (task-cache.ts) — переживает не только закрытие панели, но и перезагрузку
+  // страницы: PO просил <1с открытие, когда данные уже загружены локально. Читается один раз
+  // здесь (ленивый инициализатор — сам компонент монтируется один раз при загрузке страницы,
+  // задолго до первого открытия панели), дальше см. `load()` ниже, которая и держит state, и
+  // пишет кэш при каждой успешной загрузке.
+  const [state, setState] = useState<BodyState>(() => {
+    const cached = readTaskCache()
+    if (cached === undefined) return { phase: 'loading' }
+    const groups = queueGroups(cached)
+    const total = groups.reduce((sum, group) => sum + group.tasks.length, 0)
+    return total === 0 ? { phase: 'empty' } : { phase: 'ready', groups, total }
+  })
   const [collapsed, setCollapsed] = useState<ReadonlySet<BftStage>>(() => new Set())
   const [query, setQuery] = useState('')
   const [route, setRoute] = useState<PanelRoute>({ view: 'list' })
@@ -143,7 +147,9 @@ export function RequirementsPanel({
           setState({ phase: 'error', message: result.error.message })
           return
         }
-        const groups = queueGroups(toTaskSummaries(result.value))
+        const tasks = toTaskSummaries(result.value)
+        writeTaskCache(tasks)
+        const groups = queueGroups(tasks)
         const total = groups.reduce((sum, group) => sum + group.tasks.length, 0)
         setState(total === 0 ? { phase: 'empty' } : { phase: 'ready', groups, total })
       })
@@ -158,10 +164,12 @@ export function RequirementsPanel({
   useEffect(() => {
     if (!isOpen) return
     // Кэш списка (PO: «открывается долго каждый раз» — backlog CLI поднимается секунды).
-    // `state` — то, что осталось от прошлого открытия (компонент не размонтируется при
-    // закрытии панели, см. `if (!isOpen) return null` ниже). Если тогда уже была успешная
-    // загрузка (ready/empty) — рисуем её сразу без спиннера и молча обновляем в фоне; иначе
-    // (первое открытие или прошлая попытка упала ошибкой) — обычная загрузка с 'loading'.
+    // `state` уже может быть 'ready'/'empty' здесь двумя разными путями: осталось от прошлого
+    // открытия в эту же загрузку страницы (компонент не размонтируется при закрытии панели, см.
+    // `if (!isOpen) return null` ниже), либо восстановлено из localStorage самим ленивым
+    // инициализатором `useState` выше — для эффекта разницы нет, в обоих случаях рисуем то, что
+    // уже есть, без спиннера, и молча обновляем в фоне. Иначе (кэша не было нигде, или прошлая
+    // попытка упала ошибкой) — обычная загрузка с 'loading'.
     load({ silent: state.phase === 'ready' || state.phase === 'empty' })
     return () => { controllerRef.current?.abort() }
   }, [isOpen, load])

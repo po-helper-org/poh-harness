@@ -5,14 +5,17 @@
  * оверлеев `shell.overlay`, а ветка того же уже смонтированного slot-компонента
  * `RequirementsPanel` (см. `route.view === 'board'` в Panel.tsx).
  *
- * Список — независимый запрос по каналу `/bft` (подкоманда `list`, тот же `listRequirements`,
- * которым грузится список панели, см. index.tsx), не переиспользует уже загруженное состояние
- * панели: тело панели хранит только `queueGroups()` — хронологию очереди без Cancelled/
- * DEEP-DONE и без пустых колонок, а доске нужны все семь стадий из `boardColumns()`
- * (src/queue.ts), включая пустые. Тот же приём, каким уже пользуются Preview.tsx и
- * DetailPage.tsx для собственной загрузки: `useState` + `useEffect` + `AbortController`, три
- * состояния loading/ready/error — отдельного «пусто» не заводим, доска и так показывает семь
- * колонок с нулевыми счётчиками, когда задач нет.
+ * Список — свой запрос по каналу `/bft` (подкоманда `list`, тот же `listRequirements`, которым
+ * грузится список панели, см. index.tsx), не переиспользует React-состояние панели: тело панели
+ * хранит `queueGroups()` — хронологию очереди без Cancelled/DEEP-DONE и без пустых колонок, а
+ * доске нужны все семь стадий из `boardColumns()` (src/queue.ts), включая пустые — разная
+ * группировка одного и того же плоского списка. Общий у них только кэш localStorage
+ * (task-cache.ts): что panel, что доска читают его при монтировании (мгновенный первый рендер,
+ * если кто-то из них уже грузил список в этой сессии браузера) и перезаписывают при каждой
+ * успешной загрузке. Тот же приём, каким уже пользуются Preview.tsx и DetailPage.tsx для
+ * собственной загрузки: `useState` + `useEffect` + `AbortController`, три состояния
+ * loading/ready/error — отдельного «пусто» не заводим, доска и так показывает семь колонок с
+ * нулевыми счётчиками, когда задач нет.
  *
  * Карточка несёт только `BftTaskSummary` (id/title/stage/priority) — этого достаточно для
  * названия и идентификатора, полную задачу доска не грузит. Клик переключает панель на
@@ -22,11 +25,11 @@
  */
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import type { RpcResult } from '../channel.js'
-import type { BftTaskSummary } from '../model.js'
 import { boardColumns, type BftGroup } from '../queue.js'
 import type { BftLocaleKey } from './locales.js'
 import { panelClassNames as css } from './Panel.styles.js'
 import { STAGE_TONE } from './stage-tone.js'
+import { readTaskCache, toTaskSummaries, writeTaskCache } from './task-cache.js'
 
 export interface BoardProps {
   t: (key: BftLocaleKey) => string
@@ -43,38 +46,42 @@ type BoardState =
   | { phase: 'ready'; groups: BftGroup[] }
   | { phase: 'error'; message: string }
 
-/** Тот же приём защиты от мусора на проводе, что toTaskSummaries() в Panel.tsx — дублируем его
- * здесь по тому же принципу, по которому Preview.tsx/DetailPage.tsx дублируют toTask(): это
- * локальная охрана типа на границе провода, а не переиспользуемая утилита ядра. */
-function toTaskSummaries(value: unknown): BftTaskSummary[] {
-  if (!Array.isArray(value)) {
-    console.error('[dsh-plugin-bft] list ответил не массивом:', value)
-    return []
-  }
-  return value as BftTaskSummary[]
-}
-
 export function Board({ t, listRequirements, onOpenDetail, onBack }: BoardProps) {
-  const [state, setState] = useState<BoardState>({ phase: 'loading' })
+  // Тот же кэш localStorage, что Panel.tsx (task-cache.ts) — общий плоский список, доска
+  // строит из него boardColumns() вместо queueGroups(). Доска — отдельная ветка рендера
+  // Panel.tsx, монтируется заново при каждом открытии (в отличие от самой панели), поэтому
+  // кэш читается тут при каждом монтировании, а не только один раз на загрузку страницы.
+  const [state, setState] = useState<BoardState>(() => {
+    const cached = readTaskCache()
+    return cached === undefined ? { phase: 'loading' } : { phase: 'ready', groups: boardColumns(cached) }
+  })
   const controllerRef = useRef<AbortController | null>(null)
 
-  const load = useCallback(() => {
+  // silent — тот же приём, что в Panel.tsx: не сбрасывает экран в 'loading', ошибка фонового
+  // обновления не перекрывает уже показанный кэш, только логируется.
+  const load = useCallback((opts?: { silent?: boolean }) => {
     controllerRef.current?.abort()
     const controller = new AbortController()
     controllerRef.current = controller
-    setState({ phase: 'loading' })
+    const silent = opts?.silent ?? false
+    if (!silent) setState({ phase: 'loading' })
     listRequirements(controller.signal)
       .then((result) => {
         if (controller.signal.aborted) return
         if (!result.ok) {
+          if (silent) { console.error('[dsh-plugin-bft] фоновое обновление доски:', result.error.message); return }
           setState({ phase: 'error', message: result.error.message })
           return
         }
-        setState({ phase: 'ready', groups: boardColumns(toTaskSummaries(result.value)) })
+        const tasks = toTaskSummaries(result.value)
+        writeTaskCache(tasks)
+        setState({ phase: 'ready', groups: boardColumns(tasks) })
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return
-        setState({ phase: 'error', message: error instanceof Error ? error.message : String(error) })
+        const message = error instanceof Error ? error.message : String(error)
+        if (silent) { console.error('[dsh-plugin-bft] фоновое обновление доски:', message); return }
+        setState({ phase: 'error', message })
       })
   }, [listRequirements])
 
@@ -82,9 +89,12 @@ export function Board({ t, listRequirements, onOpenDetail, onBack }: BoardProps)
   // монтируется заново при каждом открытии) и обрывается при размонтировании — тот же приём,
   // что useEffect загрузки задачи в DetailPage.tsx. Повторное открытие доски создаёт новый
   // компонент (React размонтирует старый при переключении ветки route.view), поэтому старый
-  // AbortController не может пережить новое открытие и погнаться за него результатом.
+  // AbortController не может пережить новое открытие и погнаться за него результатом. `state`
+  // читается без зависимости намеренно (тот же приём, что в Panel.tsx) — эффект запускается
+  // единственный раз за монтирование и должен увидеть значение из ленивого инициализатора выше,
+  // а не реагировать на дальнейшие изменения state.
   useEffect(() => {
-    load()
+    load({ silent: state.phase === 'ready' })
     return () => { controllerRef.current?.abort() }
   }, [load])
 
@@ -108,7 +118,7 @@ export function Board({ t, listRequirements, onOpenDetail, onBack }: BoardProps)
             <div className={css.stateBlock}>
               <span className={css.stateIcon} data-tone="error" aria-hidden="true"><ErrorIcon /></span>
               <p className={css.stateMessage}>{state.message}</p>
-              <button type="button" className={`${css.btn} ${css.btnOutline}`} onClick={load}>
+              <button type="button" className={`${css.btn} ${css.btnOutline}`} onClick={() => { load() }}>
                 {t('retry')}
               </button>
             </div>
