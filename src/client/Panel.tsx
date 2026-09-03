@@ -33,6 +33,7 @@ import { queueGroups, searchTasks, type BftGroup } from '../queue.js'
 import type { PanelStoreHandle } from './index.js'
 // Не CSS-модуль (сборка стороннего плагина его не поддерживает — см. Panel.styles.ts):
 // плоская карта «семантическое имя → класс», тот же текст инжектирует index.tsx в <style>.
+import { DetailPage } from './DetailPage.js'
 import { panelClassNames as css } from './Panel.styles.js'
 import { Preview } from './Preview.js'
 import { STAGE_TONE } from './stage-tone.js'
@@ -42,6 +43,8 @@ export interface RequirementsPanelInjected {
   listRequirements(signal: AbortSignal): Promise<RpcResult<unknown>>
   /** Превью требования: канал `/bft`, подкоманда `task`, см. Preview.tsx. */
   getTask(id: string, signal: AbortSignal): Promise<RpcResult<unknown>>
+  /** Документ требования: канал `/bft`, подкоманда `document`, см. DetailPage.tsx (Task 3). */
+  getDocument(path: string, signal: AbortSignal): Promise<RpcResult<unknown>>
   /**
    * Кнопка «Обновить»: цепочка connectWorkspace → scope → setDraft → open, собранная в
    * src/client/index.tsx (docs/client-wiring.md, §1.3). Открывает чат с подставленной
@@ -52,11 +55,10 @@ export interface RequirementsPanelInjected {
   openSyncChat(): Promise<void>
   /**
    * Та же цепочка, обобщённая до произвольного черновика — использует превью для кнопки
-   * «Работать в чате» (Preview.tsx). Отправки нет ни при каких условиях, см. index.tsx.
+   * «Работать в чате» (Preview.tsx) и детальную страницу (DetailPage.tsx). Отправки нет ни при
+   * каких условиях, см. index.tsx.
    */
   openChatWithDraft(draft: string): Promise<void>
-  /** Заглушка задачи 3: детальная страница. Пока — console.warn, кнопка не прячется. */
-  onOpenDetail(id: string): void
 }
 
 export type RequirementsPanelProps =
@@ -79,24 +81,37 @@ function toTaskSummaries(value: unknown): BftTaskSummary[] {
   return value as BftTaskSummary[]
 }
 
+/**
+ * Что сейчас показывает панель: список, превью одного требования или его детальная страница
+ * (Task 3). Один размеченный union вместо двух независимых `string | null` (было `previewId`) —
+ * так невозможно собрать состояние вида «detailId задан, а previewId — нет» и наоборот.
+ * Локальное состояние компонента, не переживает закрытие панели (см. useEffect сброса ниже).
+ * `onOpenDetail`, которым Preview.tsx открывает детальную страницу, теперь не часть
+ * RequirementsPanelInjected — он был заглушкой именно под эту задачу (Task 2 → Task 3), а не
+ * законченным архитектурным решением; переключение режима панели живёт здесь же, локально,
+ * рядом с остальной навигацией панели.
+ */
+type PanelRoute =
+  | { view: 'list' }
+  | { view: 'preview'; id: string }
+  | { view: 'detail'; id: string }
+
 /** Панель раздела. Возвращает null, пока закрыта — тогда в оверлее нет узла, перехватывать нечего. */
 export function RequirementsPanel({
   useStore,
   actions,
   listRequirements,
   getTask,
+  getDocument,
   openSyncChat,
   openChatWithDraft,
-  onOpenDetail,
   t,
 }: RequirementsPanelProps) {
   const isOpen = useStore(state => state.open)
   const [state, setState] = useState<BodyState>({ phase: 'loading' })
   const [collapsed, setCollapsed] = useState<ReadonlySet<BftStage>>(() => new Set())
   const [query, setQuery] = useState('')
-  // Режим превью (Task 2): id выбранной строки списка или null — список. Локальное состояние
-  // панели, как collapsed/query ниже: не переживает закрытие (см. useEffect сброса).
-  const [previewId, setPreviewId] = useState<string | null>(null)
+  const [route, setRoute] = useState<PanelRoute>({ view: 'list' })
   const controllerRef = useRef<AbortController | null>(null)
 
   const load = useCallback(() => {
@@ -133,7 +148,7 @@ export function RequirementsPanel({
     if (isOpen) return
     setCollapsed(new Set())
     setQuery('')
-    setPreviewId(null)
+    setRoute({ view: 'list' })
   }, [isOpen])
 
   if (!isOpen) return null
@@ -159,18 +174,36 @@ export function RequirementsPanel({
   const isSearching = state.phase === 'ready' && query.trim().length > 0
   const noSearchResults = isSearching && filteredGroups.length === 0
 
+  // Детальная страница (Task 3) — не .bft-panel: свой полноэкранный корень поверх всего
+  // приложения (см. .${css.detailPage} в Panel.styles.ts), тот же приём соседней панели
+  // Cordis, что описан в DetailPage.tsx, а не второй слой оверлеев. «Назад» возвращает к
+  // превью того же требования — маршрут внутри одного и того же смонтированного дерева.
+  if (route.view === 'detail') {
+    return (
+      <DetailPage
+        id={route.id}
+        t={t}
+        getTask={getTask}
+        getDocument={getDocument}
+        openChatWithDraft={openChatWithDraft}
+        onBack={() => { setRoute({ view: 'preview', id: route.id }) }}
+        onClose={() => { actions.close() }}
+      />
+    )
+  }
+
   // Режим превью полностью подменяет тело панели (Task 2): тот же корневой .bft-panel,
   // своя шапка со стрелкой «назад» вместо заголовка/бейджа/«Обновить» — см. Preview.tsx.
-  if (previewId !== null) {
+  if (route.view === 'preview') {
     return (
       <aside className={css.panel} aria-label={t('previewHeaderTitle')}>
         <Preview
-          id={previewId}
+          id={route.id}
           t={t}
           getTask={getTask}
           openChatWithDraft={openChatWithDraft}
-          onOpenDetail={onOpenDetail}
-          onBack={() => { setPreviewId(null) }}
+          onOpenDetail={(id) => { setRoute({ view: 'detail', id }) }}
+          onBack={() => { setRoute({ view: 'list' }) }}
           onClose={() => { actions.close() }}
         />
       </aside>
@@ -224,7 +257,7 @@ export function RequirementsPanel({
             groups={filteredGroups}
             collapsed={collapsed}
             onToggle={toggleGroup}
-            onSelect={(id) => { setPreviewId(id) }}
+            onSelect={(id) => { setRoute({ view: 'preview', id }) }}
           />
         )}
       </div>

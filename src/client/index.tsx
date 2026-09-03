@@ -137,6 +137,9 @@ export function apply(ctx: ClientContext): void {
     connection.rpc.call(CHANNEL, 'list', {}, signal)
   const getTask = (id: string, signal: AbortSignal): Promise<RpcResult<unknown>> =>
     connection.rpc.call(CHANNEL, 'task', { id }, signal)
+  // Детальная страница (Task 3, DetailPage.tsx): документ требования, путь — из links.html.
+  const getDocument = (path: string, signal: AbortSignal): Promise<RpcResult<unknown>> =>
+    connection.rpc.call(CHANNEL, 'document', { path }, signal)
 
   // Цепочка «Обновить»/«Работать в чате» (docs/client-wiring.md, §1.3 и «Выводы для
   // реализации», п.1): uiWorkspace.connectWorkspace → sessions.scope →
@@ -199,13 +202,9 @@ export function apply(ctx: ClientContext): void {
       inject: (): RequirementsPanelInjected => ({
         listRequirements,
         getTask,
+        getDocument,
         openSyncChat,
         openChatWithDraft,
-        onOpenDetail: (id: string) => {
-          // Заглушка: детальная страница — задача 3. Кнопка «Детальная страница» не прячется
-          // (см. task-2-brief.md) — она уже видна и кликабельна, просто пока никуда не ведёт.
-          console.warn('[dsh-plugin-bft] onOpenDetail: детальная страница ещё не реализована', id)
-        },
       }),
     },
     RequirementsPanel,

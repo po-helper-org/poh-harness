@@ -31,6 +31,15 @@ export const en = {
   previewNotFilledPrefix: 'Not filled in',
   previewChat: 'Work in chat',
   previewDetail: 'Detail page',
+  detailHeaderTitle: 'Requirement detail',
+  detailBack: 'Back',
+  detailNoDocument: 'No document yet',
+  detailNoDocumentHint: 'This requirement does not have a document yet',
+  detailCreateDocument: 'Create document',
+  detailDocumentLoading: 'Loading document…',
+  detailDocumentFrameTitle: 'Requirement document',
+  detailMiniPromptLabel: 'What to do with this requirement',
+  detailMiniPromptSend: 'Send to chat',
 } satisfies Record<string, string>
 
 export const ru = {
@@ -65,6 +74,15 @@ export const ru = {
   previewNotFilledPrefix: 'Не заполнено',
   previewChat: 'Работать в чате',
   previewDetail: 'Детальная страница',
+  detailHeaderTitle: 'Детальная страница',
+  detailBack: 'Назад',
+  detailNoDocument: 'Документа нет',
+  detailNoDocumentHint: 'Для этого требования пока не создан документ',
+  detailCreateDocument: 'Создать документ',
+  detailDocumentLoading: 'Загружаю документ…',
+  detailDocumentFrameTitle: 'Документ требования',
+  detailMiniPromptLabel: 'Что сделать по этому БФТ',
+  detailMiniPromptSend: 'В чат',
 } satisfies Record<keyof typeof en, string>
 
 export type BftLocaleKey = keyof typeof en

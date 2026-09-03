@@ -75,6 +75,16 @@ export const panelClassNames = {
   previewMissing: 'bft-preview-missing',
   previewFooter: 'bft-preview-footer',
   btnPrimary: 'bft-btn-primary',
+  // Детальная страница (Task 3): полноэкранная поверх приложения, тот же приём соседней панели
+  // Cordis, что описан в DetailPage.tsx — не второй слот shell.overlay. Шапка и состояния
+  // загрузки/ошибки переиспользуют header/iconButton/stateBlock/btn* выше; свои классы — только
+  // там, где готовой геометрии нет (полноэкранный корень, двухколоночное тело, iframe, textarea).
+  detailPage: 'bft-detail-page',
+  detailBody: 'bft-detail-body',
+  detailLeft: 'bft-detail-left',
+  detailRight: 'bft-detail-right',
+  detailFrame: 'bft-detail-frame',
+  detailTextarea: 'bft-detail-textarea',
 } as const
 
 const c = panelClassNames
@@ -360,4 +370,76 @@ export const panelStyleText = `
    ".btn"/.btn-outline" уже несёт остальную геометрию кнопки (см. выше). */
 .${c.btnPrimary} { background: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-foreground); }
 @media (hover: hover) and (pointer: fine) { .${c.btnPrimary}:hover { background: var(--dsw-alias-button-primary-hover); } }
+
+/* Детальная страница (Task 3, DetailPage.tsx): полноэкранный корень поверх всего приложения,
+   не привязан к геометрии .panel (которая держится правого края и своей ширины) — здесь
+   fixed-инсет на весь экран, ровно как задано планом. Шапка — тот же .header/.iconButton, что
+   у панели и превью (переиспользован без изменений), тело — своя двухколоночная раскладка. */
+.${c.detailPage} {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  background: var(--dsw-alias-bg-base);
+  /* Слой оверлеев сам по себе pointer-events: none (AppFrame.module.css, .overlayLayer) — как
+     и .panel выше, корень записи должен сам вернуть себе кликабельность явно, а не полагаться
+     на наследование через анонимные обёртки renderSlot(). */
+  pointer-events: auto;
+  /* Полноэкранная поверхность — та же приподнятая семантика скроллбара, что у .panel. */
+  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+}
+
+/* Две колонки: слева документ (растёт первым, шире), справа стадия/ссылки/мини-промт
+   (фиксированная полоса). flex-wrap — чтобы на узком окне колонки не наезжали друг на друга,
+   а составились в стопку (визуал не полируем, но и не ломаем на маленьких экранах). */
+.${c.detailBody} {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 16px;
+  overflow: auto;
+}
+
+.${c.detailLeft} {
+  flex: 3 1 480px;
+  min-width: 320px;
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 0 0 0.5px var(--dsw-alias-border-l2);
+}
+
+.${c.detailRight} {
+  flex: 1 1 280px;
+  min-width: 260px;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+}
+
+.${c.detailFrame} { flex: 1; width: 100%; height: 100%; border: none; }
+
+.${c.detailTextarea} {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+  border-radius: 10px;
+  border: none;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-primary);
+  background: var(--dsw-specific-selector);
+}
+.${c.detailTextarea}::placeholder { color: var(--dsw-alias-label-caption); }
+.${c.detailTextarea}:focus { outline: none; box-shadow: 0 0 0 1.5px var(--dsw-alias-border-l3); }
 `

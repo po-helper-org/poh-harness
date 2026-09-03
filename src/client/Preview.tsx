@@ -1,7 +1,8 @@
 /**
  * Превью требования (Task 2 плана «Панель целиком и превью»): по клику на строку списка
  * (`Panel.tsx`, `GroupList`) панель переключается в этот режим вместо списка — тот же
- * корневой `.bft-panel`, см. ветку `previewId !== null` в `RequirementsPanel`.
+ * корневой `.bft-panel`, см. ветку `route.view === 'preview'` в `RequirementsPanel` (Task 3
+ * добавил туда же третий режим, `'detail'`, — см. DetailPage.tsx).
  *
  * Данные — отдельный запрос по каналу `/bft` (подкоманда `task`, см. `getTask` в
  * src/client/index.tsx и `dispatch()` в src/parse-view.ts), не связан с уже загруженным
@@ -36,7 +37,10 @@ export interface PreviewProps {
    * `openSyncChat` до задачи 2). Отправки нет ни при каких условиях — Enter жмёт PO.
    */
   openChatWithDraft(draft: string): Promise<void>
-  /** Заглушка задачи 3: детальная страница. Кнопка не прячется, даже пока ведёт в console.warn. */
+  /**
+   * Открывает детальную страницу (Task 3, DetailPage.tsx) — переключает режим панели, живёт
+   * локально в Panel.tsx (не в RequirementsPanelInjected: см. комментарий у route в Panel.tsx).
+   */
   onOpenDetail(id: string): void
   /** Стрелка «назад»: возвращает панель к списку, не закрывая её. */
   onBack(): void
@@ -57,6 +61,16 @@ function toTask(value: unknown): BftTask | null {
     return null
   }
   return value as BftTask
+}
+
+/**
+ * Черновик «Работать в чате» — общий шаблон для превью и детальной страницы (Task 3,
+ * DetailPage.tsx, кнопка «В чат» при пустом мини-промте): текст идентичен, поэтому вынесен
+ * сюда один раз, а не переписан вторым местом.
+ */
+export function buildContinueDraft(task: BftTask): string {
+  return `Продолжи работу над БФТ ${task.id} «${task.title}».\n`
+    + `Стадия: ${task.stage}. Детали задачи — mcp__backlog__task_view ${task.id}.`
 }
 
 export function Preview({ id, t, getTask, openChatWithDraft, onOpenDetail, onBack, onClose }: PreviewProps) {
@@ -98,10 +112,9 @@ export function Preview({ id, t, getTask, openChatWithDraft, onOpenDetail, onBac
   }, [load])
 
   const handleChat = (task: BftTask) => {
-    // Черновик из брифа задачи 2 — ровно этот текст, без автоотправки (Enter жмёт PO).
-    const draft =
-      `Продолжи работу над БФТ ${task.id} «${task.title}».\n` +
-      `Стадия: ${task.stage}. Детали задачи — mcp__backlog__task_view ${task.id}.`
+    // Шаблон вынесен в buildContinueDraft() — тот же текст переиспользует детальная страница
+    // (Task 3). Без автоотправки, Enter жмёт PO.
+    const draft = buildContinueDraft(task)
     setChatPending(true)
     void openChatWithDraft(draft).then(
       () => { onClose() },
