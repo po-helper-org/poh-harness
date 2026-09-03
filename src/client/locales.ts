@@ -17,7 +17,6 @@ export const en = {
   previewLoading: 'Loading requirement…',
   previewRetry: 'Retry',
   previewTaskNotFound: 'This requirement is no longer in Backlog.md — go back to the list',
-  previewCustomer: 'Customer',
   previewStage: 'Stage',
   previewDescription: 'Description',
   previewSmart: 'SMART goal',
@@ -28,7 +27,6 @@ export const en = {
   previewLinksHtml: 'HTML',
   previewCancelReason: 'Cancellation reason',
   previewParseError: 'Failed to read the response — the requirement data looks malformed',
-  previewNotFilledPrefix: 'Not filled in',
   previewChat: 'Work in chat',
   previewDetail: 'Detail page',
   detailHeaderTitle: 'Requirement detail',
@@ -40,7 +38,7 @@ export const en = {
   detailDocumentFrameTitle: 'Requirement document',
   detailMiniPromptLabel: 'What to do with this requirement',
   detailMiniPromptSend: 'Send to chat',
-  boardOpen: 'Progress board',
+  boardOpen: 'Open requirements board',
   boardHeaderTitle: 'Requirements board',
 } satisfies Record<string, string>
 
@@ -62,7 +60,6 @@ export const ru = {
   previewLoading: 'Загружаю требование…',
   previewRetry: 'Повторить',
   previewTaskNotFound: 'Этого требования больше нет в Backlog.md — вернись к списку',
-  previewCustomer: 'Заказчик',
   previewStage: 'Стадия',
   previewDescription: 'Описание',
   previewSmart: 'SMART-цель',
@@ -73,7 +70,6 @@ export const ru = {
   previewLinksHtml: 'HTML',
   previewCancelReason: 'Причина отмены',
   previewParseError: 'Не удалось разобрать ответ — данные требования выглядят повреждёнными',
-  previewNotFilledPrefix: 'Не заполнено',
   previewChat: 'Работать в чате',
   previewDetail: 'Детальная страница',
   detailHeaderTitle: 'Детальная страница',
@@ -85,7 +81,7 @@ export const ru = {
   detailDocumentFrameTitle: 'Документ требования',
   detailMiniPromptLabel: 'Что сделать по этому БФТ',
   detailMiniPromptSend: 'В чат',
-  boardOpen: 'Статус проработки',
+  boardOpen: 'Открыть доску требований',
   boardHeaderTitle: 'Доска с требованиями',
 } satisfies Record<keyof typeof en, string>
 

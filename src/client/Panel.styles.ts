@@ -72,7 +72,6 @@ export const panelClassNames = {
   previewFieldValue: 'bft-preview-field-value',
   previewLink: 'bft-preview-link',
   previewList: 'bft-preview-list',
-  previewMissing: 'bft-preview-missing',
   previewFooter: 'bft-preview-footer',
   btnPrimary: 'bft-btn-primary',
   // Детальная страница (Task 3): полноэкранная поверх приложения, тот же приём соседней панели
@@ -358,16 +357,6 @@ export const panelStyleText = `
   gap: 4px;
 }
 .${c.previewList} li::marker { color: var(--dsw-alias-label-caption); }
-
-.${c.previewMissing} {
-  margin: 0;
-  font-size: 12px;
-  line-height: 18px;
-  color: var(--dsw-alias-label-tertiary);
-  background: var(--dsw-alias-markdown-code-block);
-  border-radius: 10px;
-  padding: 8px 10px;
-}
 
 .${c.previewFooter} {
   flex: none;

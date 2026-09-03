@@ -196,73 +196,62 @@ export function Preview({ id, t, getTask, openChatWithDraft, onOpenDetail, onBac
 function ReadyBody({ task, t }: { task: BftTask; t: (key: BftLocaleKey) => string }) {
   const tone = { '--tone': STAGE_TONE[task.stage] } as CSSProperties
 
-  const fields: Array<{ label: string; value: ReactNode }> = []
-  const missing: string[] = []
+  // Секции всегда существуют (PO: «замени "Не заполнено: …" — секции всегда должны
+  // существовать, пустое поле — прочерк»): вместо накопления списка отсутствующих полей в
+  // отдельную сводную строку внизу, каждое поле — своя строка всегда, `EMPTY` вместо ссылки/
+  // текста, когда в задаче для него ничего нет. Заказчик — исключение: живёт только в шапке
+  // (`.previewMeta` ниже), это не «раздел», а подпись рядом с id, так было и раньше.
+  const EMPTY = '—'
 
-  if (task.customer) fields.push({ label: t('previewCustomer'), value: task.customer })
-  else missing.push(t('previewCustomer'))
-
-  fields.push({
-    label: t('previewStage'),
-    value: (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-        <span className={css.groupDot} style={tone} aria-hidden="true" />
-        {task.stage}
-      </span>
-    ),
-  })
-  fields.push({ label: t('previewDescription'), value: <p>{task.description}</p> })
-
-  if (task.links.confluence) {
-    fields.push({
+  const fields: Array<{ label: string; value: ReactNode }> = [
+    {
+      label: t('previewStage'),
+      value: (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span className={css.groupDot} style={tone} aria-hidden="true" />
+          {task.stage}
+        </span>
+      ),
+    },
+    { label: t('previewDescription'), value: <p>{task.description}</p> },
+    {
       label: t('previewLinksConfluence'),
-      value: (
-        <a className={css.previewLink} href={task.links.confluence} target="_blank" rel="noopener">
-          {task.links.confluence}
-        </a>
-      ),
-    })
-  } else {
-    missing.push(t('previewLinksConfluence'))
-  }
-
-  if (task.links.epic) {
-    fields.push({
+      value: task.links.confluence
+        ? (
+          <a className={css.previewLink} href={task.links.confluence} target="_blank" rel="noopener">
+            {task.links.confluence}
+          </a>
+          )
+        : EMPTY,
+    },
+    {
       label: t('previewLinksEpic'),
-      value: (
-        <a className={css.previewLink} href={task.links.epic} target="_blank" rel="noopener">
-          {task.links.epic}
-        </a>
-      ),
-    })
-  } else {
-    missing.push(t('previewLinksEpic'))
-  }
-
-  if (task.links.okr) fields.push({ label: t('previewLinksOkr'), value: task.links.okr })
-  else missing.push(t('previewLinksOkr'))
-
-  if (task.links.html) fields.push({ label: t('previewLinksHtml'), value: task.links.html })
-  else missing.push(t('previewLinksHtml'))
-
-  if (task.smart) fields.push({ label: t('previewSmart'), value: <p>{task.smart}</p> })
-  else missing.push(t('previewSmart'))
-
-  if (task.howToDemo.length > 0) {
-    fields.push({
+      value: task.links.epic
+        ? (
+          <a className={css.previewLink} href={task.links.epic} target="_blank" rel="noopener">
+            {task.links.epic}
+          </a>
+          )
+        : EMPTY,
+    },
+    { label: t('previewLinksOkr'), value: task.links.okr ?? EMPTY },
+    { label: t('previewLinksHtml'), value: task.links.html ?? EMPTY },
+    { label: t('previewSmart'), value: task.smart ? <p>{task.smart}</p> : EMPTY },
+    {
       label: t('previewHowToDemo'),
-      value: (
-        <ol className={css.previewList}>
-          {task.howToDemo.map((step, index) => <li key={index}>{step}</li>)}
-        </ol>
-      ),
-    })
-  } else {
-    missing.push(t('previewHowToDemo'))
-  }
+      value: task.howToDemo.length > 0
+        ? (
+          <ol className={css.previewList}>
+            {task.howToDemo.map((step, index) => <li key={index}>{step}</li>)}
+          </ol>
+          )
+        : EMPTY,
+    },
+  ]
 
-  // Причина отмены — не универсальное поле (бывает только у Cancelled, см. parse-view.ts),
-  // поэтому в общий список «Не заполнено» не идёт: у DEEP-WORK её отсутствие не пробел.
+  // Причина отмены — не универсальное поле (бывает только у Cancelled, см. parse-view.ts):
+  // строка появляется только у отменённых требований, а не всегда с прочерком у остальных —
+  // у DEEP-WORK её отсутствие не пробел, это поле в принципе не про эту стадию.
   if (task.stage === 'Cancelled' && task.cancelReason) {
     fields.push({ label: t('previewCancelReason'), value: <p>{task.cancelReason}</p> })
   }
@@ -281,9 +270,6 @@ function ReadyBody({ task, t }: { task: BftTask; t: (key: BftLocaleKey) => strin
           <div className={css.previewFieldValue}>{field.value}</div>
         </div>
       ))}
-      {missing.length > 0 && (
-        <p className={css.previewMissing}>{t('previewNotFilledPrefix')}: {missing.join(', ')}</p>
-      )}
     </div>
   )
 }
