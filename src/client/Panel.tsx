@@ -126,15 +126,20 @@ export function RequirementsPanel({
   const [route, setRoute] = useState<PanelRoute>({ view: 'list' })
   const controllerRef = useRef<AbortController | null>(null)
 
-  const load = useCallback(() => {
+  // silent=true — фоновое обновление кэша: не сбрасывает экран в 'loading' и не показывает
+  // ошибку, если она случится (что уже показано — то и остаётся). Обычный вызов (retry,
+  // первая загрузка) идёт через явный 'loading', как раньше.
+  const load = useCallback((opts?: { silent?: boolean }) => {
     controllerRef.current?.abort()
     const controller = new AbortController()
     controllerRef.current = controller
-    setState({ phase: 'loading' })
+    const silent = opts?.silent ?? false
+    if (!silent) setState({ phase: 'loading' })
     listRequirements(controller.signal)
       .then((result) => {
         if (controller.signal.aborted) return
         if (!result.ok) {
+          if (silent) { console.error('[dsh-plugin-bft] фоновое обновление списка:', result.error.message); return }
           setState({ phase: 'error', message: result.error.message })
           return
         }
@@ -144,13 +149,20 @@ export function RequirementsPanel({
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return
-        setState({ phase: 'error', message: error instanceof Error ? error.message : String(error) })
+        const message = error instanceof Error ? error.message : String(error)
+        if (silent) { console.error('[dsh-plugin-bft] фоновое обновление списка:', message); return }
+        setState({ phase: 'error', message })
       })
   }, [listRequirements])
 
   useEffect(() => {
     if (!isOpen) return
-    load()
+    // Кэш списка (PO: «открывается долго каждый раз» — backlog CLI поднимается секунды).
+    // `state` — то, что осталось от прошлого открытия (компонент не размонтируется при
+    // закрытии панели, см. `if (!isOpen) return null` ниже). Если тогда уже была успешная
+    // загрузка (ready/empty) — рисуем её сразу без спиннера и молча обновляем в фоне; иначе
+    // (первое открытие или прошлая попытка упала ошибкой) — обычная загрузка с 'loading'.
+    load({ silent: state.phase === 'ready' || state.phase === 'empty' })
     return () => { controllerRef.current?.abort() }
   }, [isOpen, load])
 
@@ -411,7 +423,7 @@ function ErrorState({ message, retryLabel, onRetry }: { message: string; retryLa
     <div className={css.stateBlock}>
       <span className={css.stateIcon} data-tone="error" aria-hidden="true"><ErrorIcon /></span>
       <p className={css.stateMessage}>{message}</p>
-      <button type="button" className={`${css.btn} ${css.btnOutline}`} onClick={onRetry}>{retryLabel}</button>
+      <button type="button" className={`${css.btn} ${css.btnOutline}`} onClick={() => { onRetry() }}>{retryLabel}</button>
     </div>
   )
 }
