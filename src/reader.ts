@@ -1,6 +1,8 @@
+import { isAbsolute, join, relative, resolve } from 'node:path'
 import type { BftConfig } from './config.js'
-import { BacklogFailedError, BacklogUnavailableError } from './errors.js'
-import type { BftTask, BftTaskSummary } from './model.js'
+import { BacklogFailedError, BacklogUnavailableError, DocumentOutsideWorkspaceError } from './errors.js'
+import { parseLastSync } from './last-sync.js'
+import type { BftLastSync, BftTask, BftTaskSummary } from './model.js'
 import { parseTaskList } from './parse-list.js'
 import { parseTaskView } from './parse-view.js'
 import { readTextFileWithNode, runCommandWithNode, type ReadTextFile, type RunCommand } from './ports.js'
@@ -34,6 +36,28 @@ export class BacklogReader {
   async getTask(id: string): Promise<BftTask> {
     const stdout = await this.backlog(['task', 'view', id, '--plain'])
     return parseTaskView(stdout)
+  }
+
+  /**
+   * Читает `.html` артефакт требования.
+   * Путь приходит из ссылок задачи, то есть из данных, поэтому проверяется:
+   * читать разрешено только внутри каталога документов воркспейса.
+   */
+  async readDocument(relativePath: string): Promise<string | null> {
+    const docsRoot = resolve(this.config.workspaceRoot, this.config.docsPath)
+    const target = resolve(this.config.workspaceRoot, relativePath)
+    const inside = relative(docsRoot, target)
+
+    if (isAbsolute(relativePath) || inside.startsWith('..') || isAbsolute(inside)) {
+      throw new DocumentOutsideWorkspaceError(relativePath)
+    }
+    return this.readTextFile(target)
+  }
+
+  /** Метка последней синхронизации. Нет файла или он битый — `null`, панель рисуется без неё. */
+  async readLastSync(): Promise<BftLastSync | null> {
+    const path = join(this.config.workspaceRoot, this.config.indexPath, 'last-sync.json')
+    return parseLastSync(await this.readTextFile(path))
   }
 
   /** Общий вызов CLI: различает «нет программы» и «программа вернула ошибку». */

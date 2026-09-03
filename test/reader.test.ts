@@ -109,3 +109,87 @@ test('путь к CLI берётся из конфигурации', async () =>
   await reader.listTasks()
   assert.equal(bin, '/opt/homebrew/bin/backlog')
 })
+
+import { DocumentOutsideWorkspaceError } from '../src/errors.js'
+
+test('документ читается по пути относительно воркспейса', async () => {
+  const seen: string[] = []
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => ok(''),
+    readTextFile: async path => { seen.push(path); return '<html>документ</html>' },
+  })
+  const html = await reader.readDocument('.bft/documentation/vk/vk.html')
+  assert.equal(html, '<html>документ</html>')
+  assert.deepEqual(seen, ['/w/.bft/documentation/vk/vk.html'])
+})
+
+test('отсутствующий документ даёт null', async () => {
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => ok(''),
+    readTextFile: async () => null,
+  })
+  assert.equal(await reader.readDocument('.bft/documentation/нет/нет.html'), null)
+})
+
+test('путь за пределы воркспейса отвергается до чтения', async () => {
+  let touched = false
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => ok(''),
+    readTextFile: async () => { touched = true; return 'секрет' },
+  })
+  await assert.rejects(
+    () => reader.readDocument('.bft/documentation/../../../../etc/passwd'),
+    (e: Error) => {
+      assert.ok(e instanceof DocumentOutsideWorkspaceError)
+      return true
+    },
+  )
+  assert.equal(touched, false, 'файл не должен быть прочитан')
+})
+
+test('абсолютный путь тоже отвергается', async () => {
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => ok(''),
+    readTextFile: async () => 'секрет',
+  })
+  await assert.rejects(() => reader.readDocument('/etc/passwd'), DocumentOutsideWorkspaceError)
+})
+
+test('документ вне каталога документов отвергается', async () => {
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => ok(''),
+    readTextFile: async () => 'чужое',
+  })
+  await assert.rejects(() => reader.readDocument('backlog/config.yml'), DocumentOutsideWorkspaceError)
+})
+
+test('метка синхронизации читается из каталога индекса', async () => {
+  const seen: string[] = []
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => ok(''),
+    readTextFile: async path => {
+      seen.push(path)
+      return JSON.stringify({ at: '2026-09-03T10:00:00Z', checkedRows: 41 })
+    },
+  })
+  const sync = await reader.readLastSync()
+  assert.equal(sync?.at, '2026-09-03T10:00:00Z')
+  assert.equal(sync?.checkedRows, 41)
+  assert.deepEqual(seen, ['/w/.bft/index/last-sync.json'])
+})
+
+test('нет метки — null, панель всё равно рисуется', async () => {
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => ok(''),
+    readTextFile: async () => null,
+  })
+  assert.equal(await reader.readLastSync(), null)
+})
+
+test('битая метка — null, а не исключение', async () => {
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => ok(''),
+    readTextFile: async () => '{не json',
+  })
+  assert.equal(await reader.readLastSync(), null)
+})
