@@ -23,3 +23,10 @@ export {
   InvalidTaskIdError,
   TaskNotFoundError,
 } from './errors.js'
+export { BFT_CHANNEL, dispatch, type RpcResult } from './channel.js'
+export { Config, toBftConfig, type PluginConfig } from './plugin-config.js'
+
+// Харнесс грузит плагин по имени пакета, то есть через эту точку входа:
+// без `apply` и `name` здесь композиция его просто не найдёт.
+// `Config` уже отдан выше из plugin-config.js — второй раз не реэкспортируем.
+export { name, apply } from './plugin.js'
