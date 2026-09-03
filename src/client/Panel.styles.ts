@@ -85,6 +85,17 @@ export const panelClassNames = {
   detailRight: 'bft-detail-right',
   detailFrame: 'bft-detail-frame',
   detailTextarea: 'bft-detail-textarea',
+  // Футер списка панели (Task 4): держит кнопку «Статус проработки» вне скроллящегося
+  // .body — сама кнопка переиспользует .btn/.btnOutline выше, здесь только контейнер-полоска.
+  panelFooter: 'bft-panel-footer',
+  // Доска по стадиям (Task 4): полноэкранная страница переиспользует .detailPage/.header/
+  // .iconButton (Task 3) и .groupDot/.groupLabel/.badge/.item/.itemBody/.itemId списка панели
+  // (Task 1) — новые классы только там, где готовой геометрии нет: горизонтальный ряд колонок
+  // и сама колонка (заголовок + скроллящееся тело), см. Board.tsx.
+  boardRow: 'bft-board-row',
+  boardColumn: 'bft-board-column',
+  boardColumnHeader: 'bft-board-column-header',
+  boardColumnBody: 'bft-board-column-body',
 } as const
 
 const c = panelClassNames
@@ -442,4 +453,67 @@ export const panelStyleText = `
 }
 .${c.detailTextarea}::placeholder { color: var(--dsw-alias-label-caption); }
 .${c.detailTextarea}:focus { outline: none; box-shadow: 0 0 0 1.5px var(--dsw-alias-border-l3); }
+
+/* Футер списка панели (Task 4): та же геометрия ряда с обводкой сверху, что и .previewFooter —
+   отдельный класс, а не переиспользование previewFooter, потому что семантически это футер
+   списка (кнопка «Статус проработки»), а не превью требования; правила совпадают намеренно. */
+.${c.panelFooter} {
+  flex: none;
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border-top: 0.5px solid var(--dsw-alias-border-l1);
+}
+
+/* Доска по стадиям (Task 4, Board.tsx): полноэкранный корень — .detailPage выше (Task 3),
+   здесь только раскладка тела. Горизонтальный ряд из семи колонок, сам ряд скроллится по
+   горизонтали на узком экране (overflow-x) — сложную адаптивность не делаем, это не входит
+   в короткий путь до MVP (см. план). */
+.${c.boardRow} {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  overflow-x: auto;
+}
+
+/* Колонка: сама не растягивает страницу по высоте — фиксированная flex-колонка (заголовок
+   flex:none сверху, тело flex:1 со своим overflow-y) внутри .boardRow, у которого высота уже
+   ограничена родителем (flex:1 в колонке .detailPage). Ширина не резиновая — контейнер длиннее
+   экрана скроллится по горизонтали целиком, а не сжимает колонки до нечитаемого минимума. */
+.${c.boardColumn} {
+  flex: 1 0 220px;
+  min-width: 220px;
+  max-width: 300px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  background: var(--dsw-alias-bg-base);
+  box-shadow: 0 0 0 0.5px var(--dsw-alias-border-l2);
+  overflow: hidden;
+}
+
+/* Заголовок колонки прилипает сверху естественно: flex:none над скроллящимся телом
+   (flex:1; overflow-y:auto ниже), а не через position:sticky — колонка сама не скроллится
+   целиком, скроллится только .boardColumnBody. */
+.${c.boardColumnHeader} {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  border-bottom: 0.5px solid var(--dsw-alias-border-l1);
+}
+
+.${c.boardColumnBody} {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
 `

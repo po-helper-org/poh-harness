@@ -40,6 +40,8 @@ export const en = {
   detailDocumentFrameTitle: 'Requirement document',
   detailMiniPromptLabel: 'What to do with this requirement',
   detailMiniPromptSend: 'Send to chat',
+  boardOpen: 'Progress board',
+  boardHeaderTitle: 'Requirements board',
 } satisfies Record<string, string>
 
 export const ru = {
@@ -83,6 +85,8 @@ export const ru = {
   detailDocumentFrameTitle: 'Документ требования',
   detailMiniPromptLabel: 'Что сделать по этому БФТ',
   detailMiniPromptSend: 'В чат',
+  boardOpen: 'Статус проработки',
+  boardHeaderTitle: 'Доска с требованиями',
 } satisfies Record<keyof typeof en, string>
 
 export type BftLocaleKey = keyof typeof en

@@ -33,6 +33,7 @@ import { queueGroups, searchTasks, type BftGroup } from '../queue.js'
 import type { PanelStoreHandle } from './index.js'
 // Не CSS-модуль (сборка стороннего плагина его не поддерживает — см. Panel.styles.ts):
 // плоская карта «семантическое имя → класс», тот же текст инжектирует index.tsx в <style>.
+import { Board } from './Board.js'
 import { DetailPage } from './DetailPage.js'
 import { panelClassNames as css } from './Panel.styles.js'
 import { Preview } from './Preview.js'
@@ -82,19 +83,30 @@ function toTaskSummaries(value: unknown): BftTaskSummary[] {
 }
 
 /**
- * Что сейчас показывает панель: список, превью одного требования или его детальная страница
- * (Task 3). Один размеченный union вместо двух независимых `string | null` (было `previewId`) —
- * так невозможно собрать состояние вида «detailId задан, а previewId — нет» и наоборот.
- * Локальное состояние компонента, не переживает закрытие панели (см. useEffect сброса ниже).
- * `onOpenDetail`, которым Preview.tsx открывает детальную страницу, теперь не часть
- * RequirementsPanelInjected — он был заглушкой именно под эту задачу (Task 2 → Task 3), а не
- * законченным архитектурным решением; переключение режима панели живёт здесь же, локально,
- * рядом с остальной навигацией панели.
+ * Куда возвращает стрелка «← Назад» детальной страницы (route.view === 'detail' ниже): до
+ * задачи 4 в детальную страницу вело единственное место (превью того же требования), и «назад»
+ * был зашит как константа. Теперь входов два — превью конкретного требования и доска по
+ * стадиям (Task 4, Board.tsx, у которой нет «своего» требования) — поэтому куда вернуться,
+ * несёт сам маршрут, а не жёстко забитое предположение на стороне DetailPage.
+ */
+type DetailBackRoute = { view: 'preview'; id: string } | { view: 'board' }
+
+/**
+ * Что сейчас показывает панель: список, превью одного требования, его детальная страница
+ * (Task 3) или доска по стадиям (Task 4). Один размеченный union вместо нескольких независимых
+ * `string | null` (было `previewId`) — так невозможно собрать состояние вида «detailId задан, а
+ * previewId — нет» и наоборот. Локальное состояние компонента, не переживает закрытие панели
+ * (см. useEffect сброса ниже).
+ * `onOpenDetail`, которым Preview.tsx и Board.tsx открывают детальную страницу, не часть
+ * RequirementsPanelInjected — он был заглушкой именно под задачу 2→3, а не законченным
+ * архитектурным решением; переключение режима панели живёт здесь же, локально, рядом с
+ * остальной навигацией панели.
  */
 type PanelRoute =
   | { view: 'list' }
   | { view: 'preview'; id: string }
-  | { view: 'detail'; id: string }
+  | { view: 'detail'; id: string; back: DetailBackRoute }
+  | { view: 'board' }
 
 /** Панель раздела. Возвращает null, пока закрыта — тогда в оверлее нет узла, перехватывать нечего. */
 export function RequirementsPanel({
@@ -176,8 +188,9 @@ export function RequirementsPanel({
 
   // Детальная страница (Task 3) — не .bft-panel: свой полноэкранный корень поверх всего
   // приложения (см. .${css.detailPage} в Panel.styles.ts), тот же приём соседней панели
-  // Cordis, что описан в DetailPage.tsx, а не второй слой оверлеев. «Назад» возвращает к
-  // превью того же требования — маршрут внутри одного и того же смонтированного дерева.
+  // Cordis, что описан в DetailPage.tsx, а не второй слой оверлеев. «Назад» возвращает туда,
+  // откуда открыли (route.back, см. DetailBackRoute выше) — превью того же требования (Task 2)
+  // или доску (Task 4), а не всегда к превью, как было зашито до задачи 4.
   if (route.view === 'detail') {
     return (
       <DetailPage
@@ -186,7 +199,7 @@ export function RequirementsPanel({
         getTask={getTask}
         getDocument={getDocument}
         openChatWithDraft={openChatWithDraft}
-        onBack={() => { setRoute({ view: 'preview', id: route.id }) }}
+        onBack={() => { setRoute(route.back) }}
         onClose={() => { actions.close() }}
       />
     )
@@ -202,11 +215,28 @@ export function RequirementsPanel({
           t={t}
           getTask={getTask}
           openChatWithDraft={openChatWithDraft}
-          onOpenDetail={(id) => { setRoute({ view: 'detail', id }) }}
+          onOpenDetail={(id) => { setRoute({ view: 'detail', id, back: { view: 'preview', id } }) }}
           onBack={() => { setRoute({ view: 'list' }) }}
           onClose={() => { actions.close() }}
         />
       </aside>
+    )
+  }
+
+  // Доска по стадиям (Task 4) — не .bft-panel: свой полноэкранный корень поверх приложения,
+  // тот же приём, что и детальная страница выше (третья/четвёртая ветка того же уже
+  // смонтированного slot-компонента, а не второй слой оверлеев). Список требований доска
+  // грузит сама (см. комментарий в шапке Board.tsx) — состояние панели (state.groups) ей не
+  // передаём: там уже отфильтрованная под очередь панели группировка (queueGroups, без
+  // Cancelled/DEEP-DONE, без пустых колонок), а доске нужны все семь стадий (boardColumns).
+  if (route.view === 'board') {
+    return (
+      <Board
+        t={t}
+        listRequirements={listRequirements}
+        onOpenDetail={(id) => { setRoute({ view: 'detail', id, back: { view: 'board' } }) }}
+        onBack={() => { setRoute({ view: 'list' }) }}
+      />
     )
   }
 
@@ -260,6 +290,20 @@ export function RequirementsPanel({
             onSelect={(id) => { setRoute({ view: 'preview', id }) }}
           />
         )}
+      </div>
+      {/* Кнопка «Статус проработки» (Task 4) — футер панели, вне скроллящегося .body, всегда
+          виден внизу независимо от состояния списка (загрузка/пусто/ошибка/готово): доска
+          открывается своим независимым запросом (Board.tsx), ей не важно, что успел или не
+          успел загрузить список панели. */}
+      <div className={css.panelFooter}>
+        <button
+          type="button"
+          className={`${css.btn} ${css.btnOutline}`}
+          style={{ width: '100%' }}
+          onClick={() => { setRoute({ view: 'board' }) }}
+        >
+          {t('boardOpen')}
+        </button>
       </div>
     </aside>
   )
