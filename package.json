@@ -19,6 +19,7 @@
     "test": "tsc -p tsconfig.test.json && node --test lib-test/test/*.test.js"
   },
   "devDependencies": {
+    "@deepseek-ai/schemastery": "^3.16.5",
     "@types/node": "^22.10.2",
     "typescript": "^5.7.2"
   }
