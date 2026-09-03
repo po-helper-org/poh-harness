@@ -34,10 +34,14 @@ import type { PanelStoreHandle } from './index.js'
 // Не CSS-модуль (сборка стороннего плагина его не поддерживает — см. Panel.styles.ts):
 // плоская карта «семантическое имя → класс», тот же текст инжектирует index.tsx в <style>.
 import { panelClassNames as css } from './Panel.styles.js'
+import { Preview } from './Preview.js'
+import { STAGE_TONE } from './stage-tone.js'
 
 /** Собственный business-face панели: всё остальное (open/close) несёт общий со кнопкой стор. */
 export interface RequirementsPanelInjected {
   listRequirements(signal: AbortSignal): Promise<RpcResult<unknown>>
+  /** Превью требования: канал `/bft`, подкоманда `task`, см. Preview.tsx. */
+  getTask(id: string, signal: AbortSignal): Promise<RpcResult<unknown>>
   /**
    * Кнопка «Обновить»: цепочка connectWorkspace → scope → setDraft → open, собранная в
    * src/client/index.tsx (docs/client-wiring.md, §1.3). Открывает чат с подставленной
@@ -46,6 +50,13 @@ export interface RequirementsPanelInjected {
    * вернул undefined) — тогда панель остаётся открытой, см. onClick ниже.
    */
   openSyncChat(): Promise<void>
+  /**
+   * Та же цепочка, обобщённая до произвольного черновика — использует превью для кнопки
+   * «Работать в чате» (Preview.tsx). Отправки нет ни при каких условиях, см. index.tsx.
+   */
+  openChatWithDraft(draft: string): Promise<void>
+  /** Заглушка задачи 3: детальная страница. Пока — console.warn, кнопка не прячется. */
+  onOpenDetail(id: string): void
 }
 
 export type RequirementsPanelProps =
@@ -53,17 +64,6 @@ export type RequirementsPanelProps =
   PropsStore<PanelStoreHandle> &
   InjectFace<RequirementsPanelInjected> &
   PropsLocale<'bft.requirements'>
-
-/** Тон стадии для полосы .item и точки .groupDot — цвета только из --dsw-*, как в прототипе. */
-const STAGE_TONE: Record<BftStage, string> = {
-  'To Do': 'var(--dsw-alias-label-caption)',
-  'FAST-DONE': 'var(--dsw-alias-button-info-fill)',
-  'REVIEW-DONE': 'var(--dsw-alias-button-info-fill)',
-  'DEEP-WORK': 'var(--dsw-alias-button-info-fill)',
-  'DEEP-REVIEW': 'var(--dsw-alias-state-warn-primary)',
-  'DEEP-DONE': 'var(--dsw-alias-state-success-primary)',
-  Cancelled: 'var(--dsw-alias-label-caption)',
-}
 
 type BodyState =
   | { phase: 'loading' }
@@ -80,11 +80,23 @@ function toTaskSummaries(value: unknown): BftTaskSummary[] {
 }
 
 /** Панель раздела. Возвращает null, пока закрыта — тогда в оверлее нет узла, перехватывать нечего. */
-export function RequirementsPanel({ useStore, actions, listRequirements, openSyncChat, t }: RequirementsPanelProps) {
+export function RequirementsPanel({
+  useStore,
+  actions,
+  listRequirements,
+  getTask,
+  openSyncChat,
+  openChatWithDraft,
+  onOpenDetail,
+  t,
+}: RequirementsPanelProps) {
   const isOpen = useStore(state => state.open)
   const [state, setState] = useState<BodyState>({ phase: 'loading' })
   const [collapsed, setCollapsed] = useState<ReadonlySet<BftStage>>(() => new Set())
   const [query, setQuery] = useState('')
+  // Режим превью (Task 2): id выбранной строки списка или null — список. Локальное состояние
+  // панели, как collapsed/query ниже: не переживает закрытие (см. useEffect сброса).
+  const [previewId, setPreviewId] = useState<string | null>(null)
   const controllerRef = useRef<AbortController | null>(null)
 
   const load = useCallback(() => {
@@ -121,6 +133,7 @@ export function RequirementsPanel({ useStore, actions, listRequirements, openSyn
     if (isOpen) return
     setCollapsed(new Set())
     setQuery('')
+    setPreviewId(null)
   }, [isOpen])
 
   if (!isOpen) return null
@@ -145,6 +158,24 @@ export function RequirementsPanel({ useStore, actions, listRequirements, openSyn
     : []
   const isSearching = state.phase === 'ready' && query.trim().length > 0
   const noSearchResults = isSearching && filteredGroups.length === 0
+
+  // Режим превью полностью подменяет тело панели (Task 2): тот же корневой .bft-panel,
+  // своя шапка со стрелкой «назад» вместо заголовка/бейджа/«Обновить» — см. Preview.tsx.
+  if (previewId !== null) {
+    return (
+      <aside className={css.panel} aria-label={t('previewHeaderTitle')}>
+        <Preview
+          id={previewId}
+          t={t}
+          getTask={getTask}
+          openChatWithDraft={openChatWithDraft}
+          onOpenDetail={onOpenDetail}
+          onBack={() => { setPreviewId(null) }}
+          onClose={() => { actions.close() }}
+        />
+      </aside>
+    )
+  }
 
   return (
     <aside className={css.panel} aria-label={t('panelTitle')}>
@@ -189,7 +220,12 @@ export function RequirementsPanel({ useStore, actions, listRequirements, openSyn
           <SearchEmptyState title={t('searchEmpty')} resetLabel={t('searchReset')} onReset={() => { setQuery('') }} />
         )}
         {state.phase === 'ready' && !noSearchResults && (
-          <GroupList groups={filteredGroups} collapsed={collapsed} onToggle={toggleGroup} />
+          <GroupList
+            groups={filteredGroups}
+            collapsed={collapsed}
+            onToggle={toggleGroup}
+            onSelect={(id) => { setPreviewId(id) }}
+          />
         )}
       </div>
     </aside>
@@ -221,10 +257,12 @@ function SearchField({ value, onChange, placeholder, clearLabel }: {
   )
 }
 
-function GroupList({ groups, collapsed, onToggle }: {
+function GroupList({ groups, collapsed, onToggle, onSelect }: {
   groups: BftGroup[]
   collapsed: ReadonlySet<BftStage>
   onToggle: (stage: BftStage) => void
+  /** Клик по строке требования — переключает панель в режим превью (Task 2, см. Preview.tsx). */
+  onSelect: (id: string) => void
 }) {
   return (
     <>
@@ -246,12 +284,18 @@ function GroupList({ groups, collapsed, onToggle }: {
             </button>
             <div className={css.groupBody}>
               {group.tasks.map(task => (
-                <div key={task.id} className={css.item} style={tone}>
+                <button
+                  key={task.id}
+                  type="button"
+                  className={css.item}
+                  style={tone}
+                  onClick={() => { onSelect(task.id) }}
+                >
                   <div className={css.itemBody}>
                     {task.title}
                     <span className={css.itemId}>{task.id}</span>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </section>

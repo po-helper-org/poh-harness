@@ -21,7 +21,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-layout/client'
 // Type-only: даёт декларацию `ctx.locale` в `Context`.
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: даёт декларацию `ctx.sessions` в `Context` + ISessions (цепочка запуска чата,
-// docs/client-wiring.md §1.2-1.3). Не в export const inject ниже — служба ленивая (см. openSyncChat).
+// docs/client-wiring.md §1.2-1.3). Не в export const inject ниже — служба ленивая (см. openChatWithDraft).
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
 // Type-only: даёт декларацию `ctx.workspaces` в `Context` + IWorkspaces/WorkspaceId — те же типы,
 // которыми сам харнесс определяет цель в startSession (navigation.ts:114-127).
@@ -135,13 +135,18 @@ export function apply(ctx: ClientContext): void {
   }
   const listRequirements = (signal: AbortSignal): Promise<RpcResult<unknown>> =>
     connection.rpc.call(CHANNEL, 'list', {}, signal)
+  const getTask = (id: string, signal: AbortSignal): Promise<RpcResult<unknown>> =>
+    connection.rpc.call(CHANNEL, 'task', { id }, signal)
 
-  // Цепочка «Обновить» (docs/client-wiring.md, §1.3 и «Выводы для реализации», п.1):
-  // uiWorkspace.connectWorkspace → sessions.scope → conversation.input.for(actx).setDraft →
-  // sessions.open. Черновик кладём до открытия — оболочка ввода создаётся по запросу и
-  // владеет своим редактором (hub.ts:139-145), поэтому сессию не нужно заранее открывать
-  // и отрисовывать. Отправки нет ни при каких условиях: submit()/conversation.send() здесь
-  // не зовутся, Enter жмёт PO.
+  // Цепочка «Обновить»/«Работать в чате» (docs/client-wiring.md, §1.3 и «Выводы для
+  // реализации», п.1): uiWorkspace.connectWorkspace → sessions.scope →
+  // conversation.input.for(actx).setDraft → sessions.open. Черновик кладём до открытия —
+  // оболочка ввода создаётся по запросу и владеет своим редактором (hub.ts:139-145), поэтому
+  // сессию не нужно заранее открывать и отрисовывать. Отправки нет ни при каких условиях:
+  // submit()/conversation.send() здесь не зовутся, Enter жмёт PO. Обобщена до
+  // `openChatWithDraft(draft)`: кнопка «Обновить» зовёт её с `SYNC_COMMAND`, превью
+  // (Preview.tsx) — со своим текстом продолжения работы над конкретным БФТ. Сама цепочка не
+  // меняется — меняется только то, какой текст подставляется в редактор.
   //
   // Все четыре службы читаются лениво через ctx.get() ПРЯМО В МОМЕНТ НАЖАТИЯ, а не сохраняются
   // в переменную здесь и не идут в export const inject: `inject` — жёсткое требование (падает
@@ -150,19 +155,19 @@ export function apply(ctx: ClientContext): void {
   // осмыслен (список требований по-прежнему работает) — отсутствие любой из них должно
   // деградировать саму кнопку, а не весь boot (см. приём dsh-plugin-subscriptions/src/client/
   // index.ts:121-122 для `modelDirectories`).
-  const openSyncChat = async (): Promise<void> => {
+  const openChatWithDraft = async (draft: string): Promise<void> => {
     const uiWorkspace = ctx.get('uiWorkspace')
     const sessions = ctx.get('sessions')
     const workspaces = ctx.get('workspaces')
     const conversation = ctx.get('conversation')
     if (uiWorkspace === undefined || sessions === undefined || workspaces === undefined || conversation === undefined) {
       throw new Error(
-        'dsh-plugin-bft: sync chat unavailable — sessions/uiWorkspace/workspaces/conversation not provided',
+        'dsh-plugin-bft: chat unavailable — sessions/uiWorkspace/workspaces/conversation not provided',
       )
     }
     const workspaceId = resolveWorkspaceId(sessions, workspaces)
     if (workspaceId === undefined) {
-      throw new Error('dsh-plugin-bft: sync chat: no workspace to connect to')
+      throw new Error('dsh-plugin-bft: chat: no workspace to connect to')
     }
     // Только connectWorkspace возвращает SessionId — startSession() не годится, он ничего
     // не отдаёт (docs/client-wiring.md, §1.3, п.1).
@@ -171,11 +176,14 @@ export function apply(ctx: ClientContext): void {
     // sessions.scope(id) отдаёт undefined для сессии, которой нет ни в списке, ни в скопах
     // (contract/sessions.ts:103) — ветку обрабатываем, не проваливаемся в input.for() с ней.
     if (actx === undefined) {
-      throw new Error(`dsh-plugin-bft: sync chat: sessions.scope(${sessionId}) returned no scope`)
+      throw new Error(`dsh-plugin-bft: chat: sessions.scope(${sessionId}) returned no scope`)
     }
-    conversation.input.for(actx).setDraft(SYNC_COMMAND)
+    conversation.input.for(actx).setDraft(draft)
     sessions.open(sessionId)
   }
+
+  /** Кнопка «Обновить»: та же цепочка, зафиксированный черновик синка. */
+  const openSyncChat = (): Promise<void> => openChatWithDraft(SYNC_COMMAND)
 
   ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register(
     { name: 'sidebar.footer.action', id: 'bft-requirements', locale: NS, store: panelStore },
@@ -188,7 +196,17 @@ export function apply(ctx: ClientContext): void {
       id: 'bft-requirements',
       locale: NS,
       store: panelStore,
-      inject: (): RequirementsPanelInjected => ({ listRequirements, openSyncChat }),
+      inject: (): RequirementsPanelInjected => ({
+        listRequirements,
+        getTask,
+        openSyncChat,
+        openChatWithDraft,
+        onOpenDetail: (id: string) => {
+          // Заглушка: детальная страница — задача 3. Кнопка «Детальная страница» не прячется
+          // (см. task-2-brief.md) — она уже видна и кликабельна, просто пока никуда не ведёт.
+          console.warn('[dsh-plugin-bft] onOpenDetail: детальная страница ещё не реализована', id)
+        },
+      }),
     },
     RequirementsPanel,
   ))
@@ -199,7 +217,7 @@ export function apply(ctx: ClientContext): void {
  * startSession (harness-ui/packages/client/ui-workspace/src/client/navigation.ts:114-127,
  * см. docs/client-wiring.md §1.4): рабочее пространство текущей сессии, а если такой нет —
  * самое недавно активное (по последней активности сессий, иначе по дате создания). Ни одного
- * рабочего пространства вообще — undefined; openSyncChat тогда останавливается, не пытаясь
+ * рабочего пространства вообще — undefined; openChatWithDraft тогда останавливается, не пытаясь
  * подключиться вслепую. `sessions.clear()`, которым в этом случае заканчивается сам
  * startSession, здесь не к месту — это навигационное поведение чужого сценария («открыть
  * пустой экран нового чата»), а не часть синхронизации требований.

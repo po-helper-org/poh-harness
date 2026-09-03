@@ -62,6 +62,19 @@ export const panelClassNames = {
   searchIcon: 'bft-search-icon',
   searchInput: 'bft-search-input',
   searchClear: 'bft-search-clear',
+  // Превью требования (Task 2): та же геометрия строк/токены, что у списка — новые классы
+  // только там, где список не даёт готового куска разметки (заголовок, метаполя, кнопки-действия).
+  previewScroll: 'bft-preview-scroll',
+  previewTitle: 'bft-preview-title',
+  previewMeta: 'bft-preview-meta',
+  previewField: 'bft-preview-field',
+  previewFieldLabel: 'bft-preview-field-label',
+  previewFieldValue: 'bft-preview-field-value',
+  previewLink: 'bft-preview-link',
+  previewList: 'bft-preview-list',
+  previewMissing: 'bft-preview-missing',
+  previewFooter: 'bft-preview-footer',
+  btnPrimary: 'bft-btn-primary',
 } as const
 
 const c = panelClassNames
@@ -213,10 +226,26 @@ export const panelStyleText = `
 .${c.group}[data-collapsed="true"] .${c.groupBody} { display: none; }
 .${c.groupBody} { border-top: 0.5px solid var(--dsw-alias-border-l1); }
 
-/* Строка требования: цветная полоса стадии слева (::before, тон — через --tone). */
-.${c.item} { position: relative; display: flex; align-items: flex-start; gap: 6px; padding: 9px 10px 9px 14px; }
+/* Строка требования: цветная полоса стадии слева (::before, тон — через --tone). Сам элемент —
+   <button> (Task 2, клик открывает превью): сброс кнопочных стилей браузера в правилах ниже. */
+.${c.item} {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  padding: 9px 10px 9px 14px;
+  background: none;
+  border: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--ds-transition-duration-fast) ease;
+}
 .${c.item} + .${c.item} { border-top: 0.5px solid var(--dsw-alias-border-l1); }
 .${c.item}::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--tone); }
+@media (hover: hover) and (pointer: fine) { .${c.item}:hover { background: var(--dsw-alias-interactive-bg-hover); } }
 .${c.itemBody} { flex: 1; min-width: 0; font-size: 13px; line-height: 19px; overflow-wrap: anywhere; }
 .${c.itemId} { display: block; margin-top: 2px; font: 11px/15px var(--ds-font-family-code); color: var(--dsw-alias-label-caption); }
 
@@ -259,4 +288,76 @@ export const panelStyleText = `
 @media (prefers-reduced-motion: reduce) {
   .${c.skeletonBar} { animation: none; }
 }
+
+/* Превью требования (Task 2). Заголовок ряда — тот же .header (см. выше), просто с
+   иконкой «назад» вместо бейджа. Тело — колонка полей, гео и токены — из утверждённого
+   прототипа docs/superpowers/prototypes/2026-09-02-bft-requirements-ui.html (секция «Превью»),
+   упрощённая до плоских блоков «подпись — значение» вместо dl/pb-секций прототипа: то же
+   визуальное решение по токенам, но кода меньше и переключение между полями предсказуемее. */
+.${c.previewScroll} {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.${c.previewTitle} {
+  margin: 0;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+}
+
+.${c.previewMeta} {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-caption);
+}
+
+.${c.previewField} { display: flex; flex-direction: column; gap: 3px; }
+.${c.previewFieldLabel} { font-size: 11px; line-height: 15px; color: var(--dsw-alias-label-caption); }
+.${c.previewFieldValue} { font-size: 13px; line-height: 20px; color: var(--dsw-alias-label-secondary); overflow-wrap: anywhere; }
+.${c.previewFieldValue} p { margin: 0; }
+
+.${c.previewLink} { color: var(--dsw-alias-button-info-fill); text-decoration: none; }
+@media (hover: hover) and (pointer: fine) { .${c.previewLink}:hover { text-decoration: underline; } }
+
+.${c.previewList} {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.${c.previewList} li::marker { color: var(--dsw-alias-label-caption); }
+
+.${c.previewMissing} {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-tertiary);
+  background: var(--dsw-alias-markdown-code-block);
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.${c.previewFooter} {
+  flex: none;
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border-top: 0.5px solid var(--dsw-alias-border-l1);
+}
+
+/* .btn-primary — Button.module.css прототипа: заливка для главного действия превью,
+   ".btn"/.btn-outline" уже несёт остальную геометрию кнопки (см. выше). */
+.${c.btnPrimary} { background: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-foreground); }
+@media (hover: hover) and (pointer: fine) { .${c.btnPrimary}:hover { background: var(--dsw-alias-button-primary-hover); } }
 `
