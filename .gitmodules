@@ -1,0 +1,9 @@
+[submodule "skills/poh-bft-writer"]
+	path = skills/poh-bft-writer
+	url = https://github.com/po-helper-org/poh-bft-writer.git
+[submodule "skills/poh-okr-agent"]
+	path = skills/poh-okr-agent
+	url = https://github.com/po-helper-org/poh-okr-agent.git
+[submodule "skills/poh-helper"]
+	path = skills/poh-helper
+	url = https://github.com/po-helper-org/poh-helper.git
