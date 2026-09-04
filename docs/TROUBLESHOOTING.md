@@ -4,10 +4,20 @@
 
 ## Установка
 
-**`pnpm build` в харнессе падает или тянется очень долго.**
-Первая сборка апстрима — это несколько минут и заметный объём в `node_modules`.
-Падение почти всегда упирается в версию Node: нужен `^22.19.0` или `>=24`,
-`node -v` покажет вашу.
+**`pnpm install` в корне падает на `ERR_PNPM_FETCH_404: @deepseek-ai/dsh-compact`.**
+Транзитивная проблема апстрима: `dsh-result-only-view` объявляет голый peer
+`@deepseek-ai/dsh-client-runtime: '*'`, а npm-тег `latest` этого пакета
+указывает на самую старую версию `0.0.1-rc.1`, которая тянет несуществующий
+пакет. Обходится через `pnpm.overrides` в `pnpm-workspace.yaml` профиля —
+`install.sh` уже пишет его из `profile/pnpm-workspace.yaml.tpl`. Если видите
+эту ошибку — значит установка идёт не через `install.sh`, либо шаблон устарел.
+
+**`pnpm install` падает на `ERR_PNPM_IGNORED_BUILDS`.**
+Нативные аддоны (`node-pty`, `koffi`, `protobufjs`) требуют одобрения
+build-скриптов. Корневой и профильный `pnpm-workspace.yaml` уже включают
+`dangerouslyAllowAllBuilds: true` — если ошибка всё равно всплыла, проверьте,
+что этот файл реально сгенерирован/присутствует рядом с тем `package.json`,
+где идёт `pnpm install`.
 
 **`dsh plugin --profile web add <path>` рапортует успех, но ничего не меняется.**
 Штатная команда установки плагина в профиль сломана: манифест профиля она не
@@ -17,14 +27,19 @@
 
 **Плагин собрался, но раздела в интерфейсе нет.**
 Проверьте, что имя пакета попало и в `dependencies`, и в `dsh.profile.bundles`
-манифеста профиля (`harness/.dsh-data/profiles/web/package.json`) — нужно и то,
-и другое. Затем полный рестарт харнесса, не только перезагрузка страницы.
+манифеста профиля (`.dsh-data/profiles/web/package.json`) — нужно и то, и
+другое. Затем полный рестарт харнесса, не только перезагрузка страницы.
+
+**Клонировал без `--recurse-submodules` — папки `skills/*` пустые.**
+`git submodule update --init --recursive` в любой момент, либо просто
+перезапустите `./install.sh` — он делает это сам на шаге 3.
 
 ## Запуск
 
 **Старая вкладка перестала открываться после рестарта.**
 Токен доступа новый после каждого запуска. Возьмите свежую ссылку из вывода
-`start-web.sh` или из `/tmp/dsh-harness.log`, если поднимаете через launchd.
+`start-web.sh`, из `/tmp/dsh-harness.log` (launchd) или `journalctl --user -u
+poh-harness.service` (systemd).
 
 **Порт 3082 занят.**
 `PORT=3090 ./scripts/start-web.sh`.
@@ -43,8 +58,9 @@
 
 1. `backlog` есть в `PATH`? (`backlog --version`) — плагин зовёт его как внешнюю
    команду.
-2. `workspaceRoot` в `harness/.dsh-data/profiles/web/cordis.patch.yml` указывает
-   на репозиторий с `backlog/`, а не на каталог харнесса?
+2. `workspaceRoot` в `.dsh-data/profiles/web/cordis.patch.yml` указывает на
+   репозиторий с `backlog/` (или на `workspace/`, если демо), а не на каталог
+   харнесса?
 3. Тип задач совпадает? Плагин берёт `bft`, у вас может быть иначе —
    `BFT_TASK_TYPE` в `.env` плагина.
 4. Стадии: в очередь панели не попадают `DEEP-DONE` и `Cancelled` — они видны
@@ -61,19 +77,51 @@
 что у задачи есть ref вида `bft/documentation/<slug>/<slug>.html` и файл
 существует.
 
+**Эпик-/Confluence-ссылки остаются обычными ссылками, не отдельным полем.**
+Так и задумано без настройки: `classifyLinks` не угадывает домен вашего
+трекера по умолчанию. Задайте `JIRA_HOST`/`CONFLUENCE_HOST` в `.env` плагина —
+см. [ONBOARDING.md, §5.2](ONBOARDING.md#52-необязательные-переменные-окружения).
+
 **Кнопка ушла в чат, но ничего не отправила.**
 Так задумано во всём разделе: контур подставляет черновик, Enter жмёт человек.
 Ни одна кнопка не отправляет сообщение сама.
 
 ## Скиллы
 
-**Скиллы воркспейса не видны модели.**
+**Скиллы не видны модели (ни submodule'ы, ни воркспейс).**
 Профиль `dsh-web-app` по умолчанию выключает и `skill-filesystem`, и `tool-skill`.
 Слой патчей включает оба явно — если правили `cordis.patch.yml` руками, убедитесь,
 что обе записи с `disabled: false` на месте. Проверить итоговую конфигурацию:
-`cd harness && pnpm dsh --profile web --dump-config`.
+`node_modules/.bin/dsh --profile web --dump-config` из корня репозитория.
+
+**`bft-writer` и одноимённый скилл из `poh-helper` конфликтуют.**
+`poh-bft-writer` и `poh-helper` пересекаются по `bft-writer`/`bft-fast`/
+`bft-deep-swarm`. `customSkillDirs` собирается `install.sh` в порядке, где
+`poh-bft-writer` идёт первым (внутри одного ранга `custom` первый по порядку
+побеждает — см. README `@deepseek-ai/dsh-skill-filesystem`/`dsh-skill`).
+Если вы вручную переставили `profile/cordis.patch.yml.tpl` — верните порядок.
 
 **Команда `/bft-html` не найдена.**
-Она живёт в [poh-bft-writer](https://github.com/po-helper-org/poh-bft-writer) и
-не входит в этот репозиторий. Поставьте скиллы в воркспейс — иначе агент начнёт
-сочинять HTML-документ руками вместо запуска готового генератора.
+Она живёт в [poh-bft-writer](https://github.com/po-helper-org/poh-bft-writer)
+(submodule `skills/poh-bft-writer`) — проверьте, что submodule подтянут
+(`git submodule status`).
+
+## Синхронизация subtree-плагинов
+
+`plugins/dsh-plugin-bft` и `plugins/dsh-plugin-caveman` живут двумя копиями:
+в приватном рабочем репозитории разработки и здесь, как `git subtree`. Синк
+из приватного репозитория в этот (для мейнтейнеров с доступом к обоим):
+
+```sh
+# из корня poh-harness
+git remote add <источник> <url-приватного-репозитория>
+git fetch <источник> <ветка-с-изменениями>
+git subtree split --prefix=<путь-к-плагину-в-источнике> \
+  --onto <предыдущий-subtree-split-коммит> -b subtree/<плагин>-vN
+git subtree pull --prefix=plugins/<плагин> <источник> subtree/<плагин>-vN \
+  -m "chore(plugins): синхронизировать <плагин>"
+git remote remove <источник>
+```
+
+`--onto` с предыдущим subtree-split-коммитом — важно: без него каждый split
+пересобирает историю с нуля, и merge не находит общего предка.
