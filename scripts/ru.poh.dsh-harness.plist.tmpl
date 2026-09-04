@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Автозапуск харнесса при логине (macOS, launchd). Необязательно: контур
+  прекрасно работает и от руки через ./scripts/start-web.sh.
+
+  Установка:
+    sed "s|__REPO_ROOT__|$(pwd)|g" scripts/ru.poh.dsh-harness.plist.tmpl \
+      > ~/Library/LaunchAgents/ru.poh.dsh-harness.plist
+    launchctl load -w ~/Library/LaunchAgents/ru.poh.dsh-harness.plist
+
+  Снятие:
+    launchctl unload ~/Library/LaunchAgents/ru.poh.dsh-harness.plist
+
+  Ссылку с токеном ищите в последней строке лога (см. StandardOutPath ниже) —
+  после каждого рестарта она новая.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>ru.poh.dsh-harness</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>__REPO_ROOT__/scripts/start-web.sh</string>
+	</array>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>PATH</key>
+		<string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+	</dict>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<true/>
+	<key>StandardOutPath</key>
+	<string>/tmp/dsh-harness.log</string>
+	<key>StandardErrorPath</key>
+	<string>/tmp/dsh-harness.log</string>
+</dict>
+</plist>

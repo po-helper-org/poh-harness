@@ -1,0 +1,30 @@
+# Backlog.md (https://github.com/MrLesk/Backlog.md) as a native DSH tool
+# server, through the generic MCP bridge (@deepseek-ai/dsh-mcp-client) that
+# already ships in this checkout — no custom plugin needed.
+#
+# Backlog.md exposes itself as an MCP server via `backlog mcp start` (stdio).
+# This entry starts that process with its cwd pinned at the ishmanov-cortex
+# Backlog.md project (../backlog/), so the model gets task_create, task_list,
+# task_edit, task_view, task_archive, task_complete, milestone_*, document_*,
+# definition_of_done_*, and get_backlog_instructions as mcp__backlog__<tool>.
+#
+# Prerequisite: `backlog` on PATH (installed here via `brew install backlog-md`,
+# /opt/homebrew/bin/backlog, v1.48.0). DSH starts/stops the process; it does
+# not install the CLI or manage the backlog/ project files.
+#
+# Local to this workspace only — this file lives under
+# ishmanov-cortex/harness-ui-ops/, not the global ~/.dsh. Apply it to the
+# running web profile with:
+#   dsh plugin --profile web patch --insert apps/cli/config/examples/... (n/a here)
+# or merge the `insert` row below into
+#   ishmanov-cortex/harness-ui/.dsh-data/profiles/web/cordis.patch.yml
+- insert:
+    - id: backlog-md
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: backlog
+        transport: stdio
+        command: backlog
+        args: ['mcp', 'start']
+        cwd: '<ваш-рабочий-каталог>'
+        env: {}

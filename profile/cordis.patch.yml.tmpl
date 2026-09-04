@@ -1,0 +1,57 @@
+# Слой патчей профиля `web`: массив записей загрузчика, применяется поверх всех
+# бандлов профиля. Этот файл генерируется из шаблона скриптом install.sh —
+# правьте `profile/cordis.patch.yml.tmpl` в репозитории, а не копию в .dsh-data,
+# иначе следующий прогон install.sh её перезапишет.
+#
+# __WORKSPACE_ROOT__ подставляется установщиком: это корень рабочего каталога,
+# где лежат ваш backlog/ и bft/ — то есть репозиторий, требования которого вы
+# ведёте. Это НЕ каталог самого харнесса.
+
+# ── Backlog.md как нативные инструменты ───────────────────────────────────────
+# https://github.com/MrLesk/Backlog.md через общий MCP-мост. Требует, чтобы
+# `backlog` был в PATH (см. docs/ONBOARDING.md).
+- insert:
+    - id: backlog-md
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: backlog
+        transport: stdio
+        command: backlog
+        args: ['mcp', 'start']
+        cwd: '__WORKSPACE_ROOT__'
+        env: {}
+
+# ── Context7 как нативные инструменты ─────────────────────────────────────────
+# https://context7.com — актуальная документация библиотек. Streamable HTTP,
+# на дефолтном рейт-лимите ключ не нужен.
+- insert:
+    - id: context7
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: context7
+        transport: streamable-http
+        url: 'https://mcp.context7.com/mcp'
+        headers: {}
+
+# ── Скиллы воркспейса как нативный skill-root ─────────────────────────────────
+# Профиль dsh-web-app по умолчанию выключает и skill-filesystem, и tool-skill
+# (проверяется через `dsh --profile web --dump-config`). Без явного включения
+# обоих customSkillDirs задан, но мёртв, а самого инструмента `skill` у модели
+# просто нет.
+- id: skill-filesystem
+  name: '@deepseek-ai/dsh-skill-filesystem'
+  disabled: false
+  config:
+    customSkillDirs:
+      - '__WORKSPACE_ROOT__/.claude/skills'
+- id: tool-skill
+  name: '@deepseek-ai/dsh-tool-skill'
+  disabled: false
+
+# ── Раздел «Управление требованиями» (dsh-plugin-bft) ─────────────────────────
+# Строка монтирования плагина приходит из его собственного cordis.patch.yml
+# (plugins/dsh-plugin-bft/cordis.patch.yml); здесь задаётся только обязательный
+# workspaceRoot — он свой на каждой машине, поэтому в пакет не зашит.
+- id: bft-requirements
+  config:
+    workspaceRoot: '__WORKSPACE_ROOT__'
