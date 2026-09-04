@@ -14,6 +14,7 @@ import { parseLastSync } from './last-sync.js'
 import type { BftLastSync, BftTask, BftTaskSummary } from './model.js'
 import { parseTaskList } from './parse-list.js'
 import { parseTaskView } from './parse-view.js'
+import type { LinkHosts } from './classify-links.js'
 import {
   listDirectoryWithNode,
   readTextFileWithNode,
@@ -23,6 +24,16 @@ import {
   type ReadTextFile,
   type RunCommand,
 } from './ports.js'
+
+/** `JIRA_HOST`/`CONFLUENCE_HOST` are full URLs; `classifyLinks` compares bare hostnames. */
+function hostnameOf(baseUrl: string | undefined): string | undefined {
+  if (baseUrl === undefined) return undefined
+  try {
+    return new URL(baseUrl).hostname
+  } catch {
+    return undefined
+  }
+}
 
 export interface BacklogReaderPorts {
   runCommand?: RunCommand
@@ -74,7 +85,11 @@ export class BacklogReader {
     // а не как флаг, даже если бы он каким-то путём обошёл проверку выше.
     const result = await this.backlog(['task', 'view', '--plain', '--', id], signal)
     if (isTaskNotFound(result, id)) throw new TaskNotFoundError(id)
-    return parseTaskView(result.stdout, this.config.docsPath)
+    const hosts: LinkHosts = {
+      jiraHost: hostnameOf(this.config.jira.baseUrl),
+      confluenceHost: hostnameOf(this.config.confluence.baseUrl),
+    }
+    return parseTaskView(result.stdout, this.config.docsPath, hosts)
   }
 
   /**

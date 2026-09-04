@@ -8,10 +8,10 @@
  * Секретов в этом файле нет и быть не может: токены живут только в окружении.
  */
 
-/** Доступ к внешней системе. Токена может не быть — тогда работают только ссылки. */
+/** Доступ к внешней системе. Хоста или токена может не быть — тогда работают только ссылки. */
 export interface BftServiceAccess {
-  /** Базовый адрес, например https://jira.mts.ru */
-  baseUrl: string
+  /** Хост из `JIRA_HOST`/`CONFLUENCE_HOST`. `undefined` — распознавание этого вида ссылок выключено. */
+  baseUrl?: string
   /** Токен из окружения. `undefined` — система доступна только как ссылки в интерфейсе. */
   token?: string
 }
@@ -45,7 +45,13 @@ export interface BftConfig {
   confluence: BftServiceAccess
 }
 
-/** Значения по умолчанию — рабочие без единой переменной окружения, кроме корня воркспейса. */
+/**
+ * Значения по умолчанию — рабочие без единой переменной окружения, кроме корня
+ * воркспейса. `jiraBaseUrl`/`confluenceBaseUrl` не заданы по умолчанию: без
+ * `JIRA_HOST`/`CONFLUENCE_HOST` плагин не угадывает домен конкретного
+ * развёртывания — эпик- и Confluence-ссылки остаются в `links.other`
+ * (см. `classifyLinks`), а не молча резолвятся против чужого трекера.
+ */
 const DEFAULTS = {
   backlogBin: 'backlog',
   docsPath: 'bft/documentation',
@@ -54,9 +60,7 @@ const DEFAULTS = {
   // тот же каталог, внутри которого уже лежат documentation/ и index/.
   sessionPath: 'bft',
   taskType: 'bft',
-  teamName: 'GDS/Платформа',
-  jiraBaseUrl: 'https://jira.mts.ru',
-  confluenceBaseUrl: 'https://confluence.mts.ru',
+  teamName: 'PO team',
 } as const
 
 export type Env = Record<string, string | undefined>
@@ -97,11 +101,11 @@ export function loadConfig(env: Env): BftConfig {
     teamName: value(env, 'BFT_TEAM_NAME') ?? DEFAULTS.teamName,
     initiativesSheetUrl: value(env, 'BFT_INITIATIVES_SHEET_URL'),
     jira: {
-      baseUrl: value(env, 'JIRA_HOST') ?? DEFAULTS.jiraBaseUrl,
+      baseUrl: value(env, 'JIRA_HOST'),
       token: value(env, 'JIRA_TOKEN'),
     },
     confluence: {
-      baseUrl: value(env, 'CONFLUENCE_HOST') ?? DEFAULTS.confluenceBaseUrl,
+      baseUrl: value(env, 'CONFLUENCE_HOST'),
       token: value(env, 'CONFLUENCE_TOKEN'),
     },
   }
@@ -122,7 +126,7 @@ export function describeConfig(config: BftConfig): string[] {
     `тип задач: ${config.taskType}`,
     `команда: ${config.teamName}`,
     `таблица инициатив: ${config.initiativesSheetUrl ?? 'не задана'}`,
-    `JIRA: ${config.jira.baseUrl}, токен ${config.jira.token ? 'задан' : 'не задан'}`,
-    `Confluence: ${config.confluence.baseUrl}, токен ${config.confluence.token ? 'задан' : 'не задан'}`,
+    `JIRA: ${config.jira.baseUrl ?? 'не задана (JIRA_HOST)'}, токен ${config.jira.token ? 'задан' : 'не задан'}`,
+    `Confluence: ${config.confluence.baseUrl ?? 'не задана (CONFLUENCE_HOST)'}, токен ${config.confluence.token ? 'задан' : 'не задан'}`,
   ]
 }

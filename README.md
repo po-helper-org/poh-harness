@@ -114,11 +114,11 @@ BFT_WORKSPACE_ROOT=/путь/к/ishmanov-cortex pnpm test
 | `BFT_DOCS_PATH` | нет | Каталог документов, по умолчанию `bft/documentation` |
 | `BFT_INDEX_PATH` | нет | Каталог индекса, по умолчанию `bft/index` |
 | `BFT_TASK_TYPE` | нет | Тип задач БФТ, по умолчанию `bft` |
-| `BFT_TEAM_NAME` | нет | Наша команда в колонке Team, по умолчанию `GDS/Платформа` |
+| `BFT_TEAM_NAME` | нет | Наша команда в колонке Team, по умолчанию `PO team` |
 | `BFT_INITIATIVES_SHEET_URL` | нет | Таблица инициатив — источник синхронизации |
-| `JIRA_HOST` | нет | По умолчанию `https://jira.mts.ru` |
+| `JIRA_HOST` | нет | Не задан по умолчанию — без него эпик-ссылки не выделяются отдельным полем |
 | `JIRA_TOKEN` | нет | Только для чтения данных эпика |
-| `CONFLUENCE_HOST` | нет | По умолчанию `https://confluence.mts.ru` |
+| `CONFLUENCE_HOST` | нет | Не задан по умолчанию — без него Confluence-ссылки не выделяются отдельным полем |
 | `CONFLUENCE_TOKEN` | нет | Только для чтения данных страницы |
 
 Имена `*_HOST` и `*_TOKEN` совпадают с уже принятыми в рабочем пространстве

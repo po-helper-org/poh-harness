@@ -22,9 +22,9 @@ const CONFIG: BftConfig = {
   indexPath: 'bft/index',
   sessionPath: 'bft',
   taskType: 'bft',
-  teamName: 'GDS/Платформа',
-  jira: { baseUrl: 'https://jira.mts.ru' },
-  confluence: { baseUrl: 'https://confluence.mts.ru' },
+  teamName: 'PO team',
+  jira: { baseUrl: 'https://jira.example.com' },
+  confluence: { baseUrl: 'https://confluence.example.com' },
 }
 
 const LIST = `To Do:
@@ -412,7 +412,7 @@ test('старое имя каталога .bft в ссылках всё ещё 
 
 test('нет ссылок в каталог документов — документа нет, но и падения нет', async () => {
   const reader = new BacklogReader(CONFIG, {
-    runCommand: async () => ok(viewWithRefs('https://jira.mts.ru/browse/GDSLV-1')),
+    runCommand: async () => ok(viewWithRefs('https://jira.example.com/browse/PROJ-1')),
     listDirectory: async () => ['vibe.html'],
     readTextFile: async () => '<html></html>',
   })
