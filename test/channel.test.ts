@@ -7,8 +7,9 @@ import type { BftConfig } from '../src/config.js'
 const CONFIG: BftConfig = {
   workspaceRoot: '/w',
   backlogBin: 'backlog',
-  docsPath: '.bft/documentation',
-  indexPath: '.bft/index',
+  docsPath: 'bft/documentation',
+  indexPath: 'bft/index',
+  sessionPath: 'bft',
   taskType: 'bft',
   teamName: 'GDS/Платформа',
   jira: { baseUrl: 'https://jira.mts.ru' },
@@ -58,7 +59,7 @@ test('task отдаёт карточку требования', async () => {
 
 test('document отдаёт содержимое документа', async () => {
   const reader = readerWith('', async () => '<html>документ</html>')
-  const result = await dispatch(reader, 'document', { path: '.bft/documentation/x/y.html' }, NO_SIGNAL)
+  const result = await dispatch(reader, 'document', { path: 'bft/documentation/x/y.html' }, NO_SIGNAL)
   assert.equal(result.ok, true)
   assert.equal((result as { value: string }).value, '<html>документ</html>')
 })
@@ -130,4 +131,59 @@ test('исключение без работающего toString тоже не 
   const error = (result as { error: { code: string; message: string } }).error
   assert.equal(error.code, 'internal')
   assert.equal(typeof error.message, 'string')
+})
+
+test('findDocument требует идентификатор', async () => {
+  const result = await dispatch(readerWith(VIEW), 'findDocument', {}, NO_SIGNAL)
+  assert.equal(result.ok, false)
+  assert.equal(result.ok === false && result.error.code, 'bad-request')
+})
+
+test('findDocument отдаёт найденный артефакт клиенту', async () => {
+  const VIEW_WITH_REFS = VIEW.replace(
+    'Type: bft',
+    'Type: bft\nReferences: ishmanov-cortex/bft/documentation/vibe/letter.md',
+  )
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => ({ stdout: VIEW_WITH_REFS, stderr: '', code: 0, timedOut: false, killedBySignal: null }),
+    listDirectory: async () => ['letter.md'],
+    readTextFile: async () => '# Письмо',
+  })
+  const result = await dispatch(reader, 'findDocument', { id: 'PO-20' }, NO_SIGNAL)
+  assert.equal(result.ok, true)
+  assert.deepEqual(result.ok === true && result.value, {
+    path: 'bft/documentation/vibe/letter.md',
+    kind: 'markdown',
+    content: '# Письмо',
+  })
+})
+
+test('findDocument отдаёт null, когда показывать нечего', async () => {
+  const result = await dispatch(readerWith(VIEW), 'findDocument', { id: 'PO-20' }, NO_SIGNAL)
+  assert.equal(result.ok, true)
+  assert.equal(result.ok === true && result.value, null)
+})
+
+test('sessionWorkspace отдаёт абсолютный путь рабочего пространства чатов', async () => {
+  const result = await dispatch(readerWith(''), 'sessionWorkspace', {}, NO_SIGNAL)
+  assert.equal(result.ok, true)
+  assert.equal((result as { value: string | null }).value, '/w/bft')
+})
+
+test('sessionWorkspace отдаёт null, когда привязка выключена', async () => {
+  const reader = new BacklogReader({ ...CONFIG, sessionPath: '' }, {
+    runCommand: async () => ({ stdout: '', stderr: '', code: 0, timedOut: false, killedBySignal: null }),
+  })
+  const result = await dispatch(reader, 'sessionWorkspace', {}, NO_SIGNAL)
+  assert.equal(result.ok, true)
+  assert.equal((result as { value: string | null }).value, null)
+})
+
+test('sessionWorkspace за пределами воркспейса отвечает ошибкой, а не путём наружу', async () => {
+  const reader = new BacklogReader({ ...CONFIG, sessionPath: '../../etc' }, {
+    runCommand: async () => ({ stdout: '', stderr: '', code: 0, timedOut: false, killedBySignal: null }),
+  })
+  const result = await dispatch(reader, 'sessionWorkspace', {}, NO_SIGNAL)
+  assert.equal(result.ok, false)
+  assert.equal((result as { error: { code: string } }).error.code, 'document-outside-workspace')
 })

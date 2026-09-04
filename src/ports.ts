@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
+import { readdir, readFile } from 'node:fs/promises'
 import { constants as osConstants } from 'node:os'
 import { DocumentUnreadableError } from './errors.js'
 
@@ -38,6 +38,12 @@ export type RunCommand = (bin: string, args: string[], cwd: string, signal?: Abo
 
 /** Порт чтения текстового файла. `null` — файла нет; это не ошибка. Любая другая причина неудачи — исключение. */
 export type ReadTextFile = (path: string) => Promise<string | null>
+
+/**
+ * Порт перечисления файлов каталога (без обхода вложенных). Нет каталога — пустой список:
+ * папки эпика может не быть вовсе, и это обычное состояние, а не ошибка.
+ */
+export type ListDirectory = (path: string) => Promise<string[]>
 
 /** Больше десяти секунд `backlog` не думает даже на большом проекте. */
 const COMMAND_TIMEOUT_MS = 10_000
@@ -214,5 +220,20 @@ export async function readTextFileWithNode(path: string): Promise<string | null>
     const e = err as NodeJS.ErrnoException
     if (e.code === 'ENOENT') return null
     throw new DocumentUnreadableError(path, e.message)
+  }
+}
+
+/**
+ * Перечисляет обычные файлы каталога. Отсутствие каталога и «по пути не каталог» — пустой
+ * список: для поиска артефактов это равнозначно «нечего показывать», а отличать эти случаи
+ * незачем — панель в обоих ведёт себя одинаково. Прочие ошибки (нет прав) тоже гасятся:
+ * поиск документа — вспомогательная операция, из-за неё не должна падать вся карточка.
+ */
+export async function listDirectoryWithNode(path: string): Promise<string[]> {
+  try {
+    const entries = await readdir(path, { withFileTypes: true })
+    return entries.filter(e => e.isFile() || e.isSymbolicLink()).map(e => e.name)
+  } catch {
+    return []
   }
 }

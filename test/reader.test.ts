@@ -18,8 +18,9 @@ import type { BftConfig } from '../src/config.js'
 const CONFIG: BftConfig = {
   workspaceRoot: '/w',
   backlogBin: 'backlog',
-  docsPath: '.bft/documentation',
-  indexPath: '.bft/index',
+  docsPath: 'bft/documentation',
+  indexPath: 'bft/index',
+  sessionPath: 'bft',
   taskType: 'bft',
   teamName: 'GDS/Платформа',
   jira: { baseUrl: 'https://jira.mts.ru' },
@@ -137,9 +138,9 @@ test('документ читается по пути относительно �
     runCommand: async () => ok(''),
     readTextFile: async path => { seen.push(path); return '<html>документ</html>' },
   })
-  const html = await reader.readDocument('.bft/documentation/vk/vk.html')
+  const html = await reader.readDocument('bft/documentation/vk/vk.html')
   assert.equal(html, '<html>документ</html>')
-  assert.deepEqual(seen, ['/w/.bft/documentation/vk/vk.html'])
+  assert.deepEqual(seen, ['/w/bft/documentation/vk/vk.html'])
 })
 
 test('отсутствующий документ даёт null', async () => {
@@ -147,7 +148,7 @@ test('отсутствующий документ даёт null', async () => {
     runCommand: async () => ok(''),
     readTextFile: async () => null,
   })
-  assert.equal(await reader.readDocument('.bft/documentation/нет/нет.html'), null)
+  assert.equal(await reader.readDocument('bft/documentation/нет/нет.html'), null)
 })
 
 test('путь за пределы воркспейса отвергается до чтения', async () => {
@@ -157,7 +158,7 @@ test('путь за пределы воркспейса отвергается �
     readTextFile: async () => { touched = true; return 'секрет' },
   })
   await assert.rejects(
-    () => reader.readDocument('.bft/documentation/../../../../etc/passwd'),
+    () => reader.readDocument('bft/documentation/../../../../etc/passwd'),
     (e: Error) => {
       assert.ok(e instanceof DocumentOutsideWorkspaceError)
       return true
@@ -194,7 +195,7 @@ test('метка синхронизации читается из каталог
   const sync = await reader.readLastSync()
   assert.equal(sync?.at, '2026-09-03T10:00:00Z')
   assert.equal(sync?.checkedRows, 41)
-  assert.deepEqual(seen, ['/w/.bft/index/last-sync.json'])
+  assert.deepEqual(seen, ['/w/bft/index/last-sync.json'])
 })
 
 test('нет метки — null, панель всё равно рисуется', async () => {
@@ -289,10 +290,10 @@ test('ошибка чтения документа не превращается
   const reader = new BacklogReader(CONFIG, {
     runCommand: async () => ok(''),
     readTextFile: async () => {
-      throw new DocumentUnreadableError('/w/.bft/documentation/x.html', 'EACCES')
+      throw new DocumentUnreadableError('/w/bft/documentation/x.html', 'EACCES')
     },
   })
-  await assert.rejects(() => reader.readDocument('.bft/documentation/x.html'), DocumentUnreadableError)
+  await assert.rejects(() => reader.readDocument('bft/documentation/x.html'), DocumentUnreadableError)
 })
 
 // === IMPORTANT 4: симлинк обходит защиту пути ===
@@ -302,7 +303,7 @@ test('ошибка чтения документа не превращается
 
 test('симлинк внутри каталога документов, ведущий наружу воркспейса, отвергается', async () => {
   const workspaceRoot = await mkdtemp(join(tmpdir(), 'bft-reader-ws-'))
-  const docsDir = join(workspaceRoot, '.bft', 'documentation')
+  const docsDir = join(workspaceRoot, 'bft', 'documentation')
   await mkdir(docsDir, { recursive: true })
 
   const secretDir = await mkdtemp(join(tmpdir(), 'bft-reader-secret-'))
@@ -318,7 +319,7 @@ test('симлинк внутри каталога документов, вед�
   const reader = new BacklogReader(config, { runCommand: async () => ok('') })
 
   await assert.rejects(
-    () => reader.readDocument('.bft/documentation/evil.html'),
+    () => reader.readDocument('bft/documentation/evil.html'),
     (e: Error) => {
       assert.ok(e instanceof DocumentOutsideWorkspaceError)
       return true
@@ -337,9 +338,9 @@ test('документ с именем, начинающимся на две т�
       return '<html>легальный документ</html>'
     },
   })
-  const html = await reader.readDocument('.bft/documentation/..hidden/x.html')
+  const html = await reader.readDocument('bft/documentation/..hidden/x.html')
   assert.equal(html, '<html>легальный документ</html>')
-  assert.deepEqual(seen, ['/w/.bft/documentation/..hidden/x.html'])
+  assert.deepEqual(seen, ['/w/bft/documentation/..hidden/x.html'])
 })
 
 // === MINOR: config.taskType документирован, но не работает ===
@@ -352,4 +353,135 @@ test('listTasks использует тип задач из конфигурац
   )
   const tasks = await reader.listTasks()
   assert.deepEqual(tasks.map(t => t.id), ['PO-5'])
+})
+
+// --- Поиск документа по конвенции (регрессия: FAST-DONE показывал пустой экран) ---
+
+/** Вывод `task view` с произвольным набором ссылок. */
+function viewWithRefs(refs: string): string {
+  return `Task PO-22 - БФТ: Билеты в кино в Vibe App
+==========
+
+Status: ○ FAST-DONE
+Priority: High
+Type: bft
+References: ${refs}
+
+Description:
+--------------------------------------------------
+Заказчик: Геворгян Виктория (Коммерция). Данные не пробрасываются.
+`
+}
+
+test('находит html, даже если в ссылках только .md с префиксом репозитория — регрессия PO-22', async () => {
+  // Ровно то, что лежит в задаче PO-22: .html на диске есть, но в References его нет,
+  // а все пути записаны с префиксом имени репозитория.
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => ok(viewWithRefs(
+      'ishmanov-cortex/bft/documentation/vibe-kino-user-data/letter.md, '
+      + 'ishmanov-cortex/bft/documentation/vibe-kino-user-data/vibe-kino-user-data.md',
+    )),
+    listDirectory: async () => ['letter.md', 'requirements.md', 'vibe-kino-user-data.md', 'vibe-kino-user-data.html'],
+    readTextFile: async () => '<!doctype html><h1>БФТ</h1>',
+  })
+  const doc = await reader.findDocument('PO-22')
+  assert.equal(doc?.kind, 'html')
+  assert.equal(doc?.path, 'bft/documentation/vibe-kino-user-data/vibe-kino-user-data.html')
+})
+
+test('FAST-DONE без html показывает письмо, а не пустой экран', async () => {
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => ok(viewWithRefs('bft/documentation/vibe/letter.md')),
+    listDirectory: async () => ['letter.md', 'requirements.md'],
+    readTextFile: async () => '# Письмо\n\nЦель: ...',
+  })
+  const doc = await reader.findDocument('PO-22')
+  assert.equal(doc?.kind, 'markdown')
+  assert.equal(doc?.path, 'bft/documentation/vibe/letter.md')
+})
+
+test('старое имя каталога .bft в ссылках всё ещё находит документ', async () => {
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => ok(viewWithRefs('ishmanov-cortex/.bft/documentation/vibe/vibe.md')),
+    listDirectory: async () => ['vibe.html'],
+    readTextFile: async () => '<html></html>',
+  })
+  const doc = await reader.findDocument('PO-22')
+  assert.equal(doc?.path, 'bft/documentation/vibe/vibe.html')
+})
+
+test('нет ссылок в каталог документов — документа нет, но и падения нет', async () => {
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => ok(viewWithRefs('https://jira.mts.ru/browse/GDSLV-1')),
+    listDirectory: async () => ['vibe.html'],
+    readTextFile: async () => '<html></html>',
+  })
+  assert.equal(await reader.findDocument('PO-22'), null)
+})
+
+test('пустая папка эпика — документа нет', async () => {
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => ok(viewWithRefs('bft/documentation/vibe/letter.md')),
+    listDirectory: async () => [],
+    readTextFile: async () => null,
+  })
+  assert.equal(await reader.findDocument('PO-22'), null)
+})
+
+test('пустой файл не выдаётся за документ — берётся следующий кандидат', async () => {
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => ok(viewWithRefs('bft/documentation/vibe/letter.md')),
+    listDirectory: async () => ['vibe.html', 'letter.md'],
+    readTextFile: async (path: string) => (path.endsWith('.html') ? '   ' : '# Письмо'),
+  })
+  const doc = await reader.findDocument('PO-22')
+  assert.equal(doc?.path, 'bft/documentation/vibe/letter.md')
+})
+
+test('нечитаемый html не обрывает поиск — показывается markdown', async () => {
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => ok(viewWithRefs('bft/documentation/vibe/letter.md')),
+    listDirectory: async () => ['vibe.html', 'letter.md'],
+    readTextFile: async (path: string) => {
+      if (path.endsWith('.html')) throw new DocumentUnreadableError(path, 'permission denied')
+      return '# Письмо'
+    },
+  })
+  const doc = await reader.findDocument('PO-22')
+  assert.equal(doc?.kind, 'markdown')
+})
+
+test('ссылка на артефакт вглубь папки тоже определяет эпик', async () => {
+  const reader = new BacklogReader(CONFIG, {
+    runCommand: async () => ok(viewWithRefs('ishmanov-cortex/bft/documentation/vibe/artefacts/validation.md')),
+    listDirectory: async () => ['vibe.html'],
+    readTextFile: async () => '<html></html>',
+  })
+  const doc = await reader.findDocument('PO-22')
+  assert.equal(doc?.path, 'bft/documentation/vibe/vibe.html')
+})
+
+test('рабочее пространство чатов резолвится в абсолютный путь', () => {
+  const reader = new BacklogReader(CONFIG, {})
+  assert.equal(reader.resolveSessionPath(), '/w/bft')
+})
+
+test('пустой sessionPath означает «не привязывать» — null, а не путь на корень', () => {
+  const reader = new BacklogReader({ ...CONFIG, sessionPath: '' }, {})
+  assert.equal(reader.resolveSessionPath(), null)
+})
+
+test('вложенный sessionPath резолвится относительно корня воркспейса', () => {
+  const reader = new BacklogReader({ ...CONFIG, sessionPath: 'bft/chats' }, {})
+  assert.equal(reader.resolveSessionPath(), '/w/bft/chats')
+})
+
+test('sessionPath за пределами воркспейса отвергается, а не привязывает чаты к чужой папке', () => {
+  const reader = new BacklogReader({ ...CONFIG, sessionPath: '../../etc' }, {})
+  assert.throws(() => reader.resolveSessionPath(), DocumentOutsideWorkspaceError)
+})
+
+test('абсолютный sessionPath вне воркспейса тоже отвергается', () => {
+  const reader = new BacklogReader({ ...CONFIG, sessionPath: '/etc' }, {})
+  assert.throws(() => reader.resolveSessionPath(), DocumentOutsideWorkspaceError)
 })

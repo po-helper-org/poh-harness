@@ -7,12 +7,12 @@ test('раскладывает ссылки по видам', () => {
     'https://confluence.mts.ru/pages/viewpage.action?pageId=2472119875',
     'https://jira.mts.ru/browse/TLND-19311',
     'okr:strategy-2026q3-kr-1-6',
-    '.bft/documentation/vk-tickets-ticketland-widget/vk-tickets-ticketland-widget.html',
+    'bft/documentation/vk-tickets-ticketland-widget/vk-tickets-ticketland-widget.html',
   ])
   assert.equal(links.confluence, 'https://confluence.mts.ru/pages/viewpage.action?pageId=2472119875')
   assert.equal(links.epic, 'https://jira.mts.ru/browse/TLND-19311')
   assert.equal(links.okr, 'strategy-2026q3-kr-1-6')
-  assert.equal(links.html, '.bft/documentation/vk-tickets-ticketland-widget/vk-tickets-ticketland-widget.html')
+  assert.equal(links.html, 'bft/documentation/vk-tickets-ticketland-widget/vk-tickets-ticketland-widget.html')
   assert.deepEqual(links.other, [])
 })
 
@@ -25,7 +25,7 @@ test('префикс okr: снимает', () => {
   assert.equal(classifyLinks(['okr:strategy-2026q3-kr-3-5']).okr, 'strategy-2026q3-kr-3-5')
 })
 
-test('html вне .bft/documentation считает прочей ссылкой', () => {
+test('html вне bft/documentation считает прочей ссылкой', () => {
   const links = classifyLinks(['docs/readme.html'])
   assert.equal(links.html, undefined)
   assert.deepEqual(links.other, ['docs/readme.html'])
@@ -63,7 +63,7 @@ test('пустая строка отбрасывается и не попада�
 })
 
 test('html распознаётся независимо от регистра расширения', () => {
-  const links = classifyLinks(['.bft/documentation/x/y.HTML'])
-  assert.equal(links.html, '.bft/documentation/x/y.HTML')
+  const links = classifyLinks(['bft/documentation/x/y.HTML'])
+  assert.equal(links.html, 'bft/documentation/x/y.HTML')
   assert.deepEqual(links.other, [])
 })

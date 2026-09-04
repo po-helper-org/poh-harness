@@ -27,8 +27,11 @@ function section(stdout: string, name: string): string {
  * Разбирает вывод `backlog task view <id> --plain`.
  * SMART-цель живёт в описании отдельной секцией `## SMART`, HowToDemo — в пунктах приёмки,
  * причина отмены — в заметках. Так договорились в конвенции полей.
+ *
+ * `docsPath` нужен только для распознавания ссылки на документ; не задан — берётся
+ * умолчание из `classifyLinks`, поэтому вызовы из тестов и утилит остаются однострочными.
  */
-export function parseTaskView(stdout: string): BftTask {
+export function parseTaskView(stdout: string, docsPath?: string): BftTask {
   const normalized = stdout.replace(/^﻿/, '').replace(/\r\n?/g, '\n')
 
   const head = TITLE_RE.exec(normalized)
@@ -81,7 +84,7 @@ export function parseTaskView(stdout: string): BftTask {
     description,
     smart,
     howToDemo,
-    links: classifyLinks(refs),
+    links: classifyLinks(refs, docsPath),
     cancelReason,
   }
 }

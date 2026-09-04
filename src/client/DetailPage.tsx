@@ -16,7 +16,7 @@
  * AbortController и свой повтор, независимые от загрузки задачи — тот же приём, что в
  * Preview.tsx для `task`.
  */
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 // Реальные компонент кнопки и иконки харнесса (Task 4 визуального выравнивания) вместо
 // hand-drawn inline SVG и локальных .btn/.btnOutline/.btnPrimary — см. Panel.tsx. IconCodeOutline16
 // для «нет документа»: наш документ требования — HTML-артефакт (links.html), а в наборе икон нет
@@ -27,8 +27,9 @@ import {
 import type { RpcResult } from '../channel.js'
 import type { BftTask } from '../model.js'
 import type { BftLocaleKey } from './locales.js'
+import { markdownToPage } from './markdown-page.js'
+import { MiniChat } from './MiniChat.js'
 import { panelClassNames as css } from './Panel.styles.js'
-import { buildContinueDraft } from './Preview.js'
 import { STAGE_TONE } from './stage-tone.js'
 
 export interface DetailPageProps {
@@ -37,10 +38,20 @@ export interface DetailPageProps {
   t: (key: BftLocaleKey) => string
   /** Канал `/bft`, подкоманда `task` — тот же инжектированный вызов, что у Preview.tsx. */
   getTask(id: string, signal: AbortSignal): Promise<RpcResult<unknown>>
-  /** Канал `/bft`, подкоманда `document` — читает `.html`-артефакт по пути из `links.html`. */
-  getDocument(path: string, signal: AbortSignal): Promise<RpcResult<unknown>>
+  /**
+   * Канал `/bft`, подкоманда `findDocument` — ищет документ по конвенции каталогов.
+   * Страница передаёт только идентификатор: где лежит файл и как он называется — знание
+   * хоста, а не клиента. Поэтому смена формата ссылок в навыках сюда не протекает.
+   */
+  findDocument(id: string, signal: AbortSignal): Promise<RpcResult<unknown>>
   /** Обобщённая цепочка «уйти в чат с черновиком» (см. index.tsx). Отправки нет никогда. */
   openChatWithDraft(draft: string): Promise<void>
+  /** Мини-чат: отправка правки в сессию требования без навигации (см. MiniChat.tsx). */
+  sendToRequirement(taskId: string, text: string): Promise<void>
+  /** Мини-чат: подписка на «агент занят» по этому требованию; возвращает функцию отписки. */
+  watchRequirementRunning(taskId: string, onChange: (running: boolean) => void): () => void
+  /** Мини-чат: явный переход в основное окно (единственный способ прочитать ответы агента). */
+  openRequirementInMainChat(taskId: string): Promise<void>
   /** Стрелка «← Назад»: возвращает панель к превью того же требования (см. Panel.tsx). */
   onBack(): void
   /** Панель целиком — зовётся после успешного ухода в чат, тот же приём, что в Preview.tsx. */
@@ -53,10 +64,11 @@ type TaskState =
   | { phase: 'error'; code: string; message: string }
 
 type DocState =
-  | { phase: 'none' } // links.html не задан — канал document вообще не зовём
   | { phase: 'loading' }
-  | { phase: 'ready'; html: string }
-  | { phase: 'missing' } // links.html задан, но канал вернул null/пустую строку — документа нет
+  /** Найден документ: `html` уже готов к показу (markdown завёрнут в страницу до этого). */
+  | { phase: 'ready'; html: string; path: string; kind: 'html' | 'markdown' }
+  /** В папке эпика нечего показать — либо самой папки нет. Это не ошибка. */
+  | { phase: 'missing' }
   | { phase: 'error'; message: string }
 
 /** Тот же приём защиты от мусора на проводе, что toTask() в Preview.tsx — не дублируем его
@@ -69,16 +81,33 @@ function toTask(value: unknown): BftTask | null {
   return value as BftTask
 }
 
-/** `reader.readDocument()` отдаёт `string | null` — что угодно ещё через провод не мусор,
- * а признак совсем другой поломки, поэтому логируется и уходит в «документа нет». */
-function toDocumentHtml(value: unknown): string | null {
-  if (value === null) return null
-  if (typeof value === 'string') return value
-  console.error('[dsh-plugin-bft] document ответил не строкой:', value)
-  return null
+/** Ответ канала `findDocument`: найденный документ либо `null`, если показывать нечего. */
+interface FoundDocument {
+  path: string
+  kind: 'html' | 'markdown'
+  content: string
 }
 
-export function DetailPage({ id, t, getTask, getDocument, openChatWithDraft, onBack, onClose }: DetailPageProps) {
+/** `reader.findDocument()` отдаёт объект или `null`; что угодно ещё — признак поломки. */
+function toFoundDocument(value: unknown): FoundDocument | null {
+  if (value === null || value === undefined) return null
+  if (typeof value !== 'object') {
+    console.error('[dsh-plugin-bft] findDocument ответил не объектом:', value)
+    return null
+  }
+  const doc = value as Partial<FoundDocument>
+  if (typeof doc.content !== 'string' || typeof doc.path !== 'string') {
+    console.error('[dsh-plugin-bft] findDocument вернул документ без содержимого:', value)
+    return null
+  }
+  return { path: doc.path, kind: doc.kind === 'markdown' ? 'markdown' : 'html', content: doc.content }
+}
+
+export function DetailPage({
+  id, t, getTask, findDocument, openChatWithDraft,
+  sendToRequirement, watchRequirementRunning, openRequirementInMainChat,
+  onBack, onClose,
+}: DetailPageProps) {
   const [taskState, setTaskState] = useState<TaskState>({ phase: 'loading' })
   const taskControllerRef = useRef<AbortController | null>(null)
 
@@ -108,74 +137,58 @@ export function DetailPage({ id, t, getTask, getDocument, openChatWithDraft, onB
     return () => { taskControllerRef.current?.abort() }
   }, [loadTask])
 
-  // Путь документа известен только после загрузки задачи — до этого loadDoc() просто
-  // переводит состояние в 'none' и ничего не запрашивает (см. ветку htmlPath === undefined).
-  const htmlPath = taskState.phase === 'ready' ? taskState.task.links.html : undefined
-  const [docState, setDocState] = useState<DocState>({ phase: 'none' })
+  // Документ ищется по идентификатору требования, а не по пути из ссылок: где лежит файл —
+  // знание хоста (см. reader.findDocument). Поэтому запрос не ждёт загрузки задачи и не
+  // зависит от того, записал ли навык ссылку на артефакт.
+  const [docState, setDocState] = useState<DocState>({ phase: 'loading' })
   const docControllerRef = useRef<AbortController | null>(null)
 
   const loadDoc = useCallback(() => {
     docControllerRef.current?.abort()
-    if (htmlPath === undefined) {
-      setDocState({ phase: 'none' })
-      return
-    }
     const controller = new AbortController()
     docControllerRef.current = controller
     setDocState({ phase: 'loading' })
-    getDocument(htmlPath, controller.signal)
+    findDocument(id, controller.signal)
       .then((result) => {
         if (controller.signal.aborted) return
         if (!result.ok) {
           setDocState({ phase: 'error', message: result.error.message })
           return
         }
-        const html = toDocumentHtml(result.value)
-        setDocState(html ? { phase: 'ready', html } : { phase: 'missing' })
+        const doc = toFoundDocument(result.value)
+        if (doc === null) {
+          setDocState({ phase: 'missing' })
+          return
+        }
+        // Markdown заворачивается в страницу здесь, а не на хосте: хост отдаёт артефакт как
+        // есть, а как его показать — решение представления.
+        const html = doc.kind === 'markdown' ? markdownToPage(doc.content, doc.path) : doc.content
+        setDocState({ phase: 'ready', html, path: doc.path, kind: doc.kind })
       })
       .catch((error: unknown) => {
         if (controller.signal.aborted) return
         setDocState({ phase: 'error', message: error instanceof Error ? error.message : String(error) })
       })
-  }, [getDocument, htmlPath])
+  }, [findDocument, id])
 
   useEffect(() => {
     loadDoc()
     return () => { docControllerRef.current?.abort() }
   }, [loadDoc])
 
-  const [promptText, setPromptText] = useState('')
-  // Общий busy-флаг для обеих кнопок, ведущих в чат («Создать документ» и мини-промт): обе
-  // зовут одну и ту же цепочку openChatWithDraft, второй клик до её завершения не нужен —
-  // тот же приём, что chatPending в Preview.tsx.
+  // Busy-флаг кнопки «Создать документ» — единственной, что осталась уводить в основной чат
+  // (создание документа с нуля это долгая работа, которой место в полноценном диалоге, а не
+  // в мини-чате коротких правок). Мини-чат своей занятостью управляет сам, см. MiniChat.tsx.
   const [chatPending, setChatPending] = useState(false)
 
-  const sendChat = (draft: string) => {
+  const handleCreateDocument = (task: BftTask) => {
     setChatPending(true)
-    void openChatWithDraft(draft).then(
+    void openChatWithDraft(`/bft-fast ${task.id} «${task.title}»`).then(
       () => { onClose() },
       (error: unknown) => {
         setChatPending(false)
         console.error('[dsh-plugin-bft] detail chat:', error)
       },
-    )
-  }
-
-  const handleCreateDocument = (task: BftTask) => {
-    sendChat(`/bft-fast ${task.id} «${task.title}»`)
-  }
-
-  const handleMiniPrompt = (task: BftTask) => {
-    const text = promptText.trim()
-    if (text === '') {
-      // Пустое поле — тот же черновик, что «Работать в чате» в превью (buildContinueDraft).
-      sendChat(buildContinueDraft(task))
-      return
-    }
-    const docPath = task.links.html ?? '—'
-    sendChat(
-      `По БФТ ${task.id} «${task.title}» (${docPath}): ${text}\n`
-      + `Детали — mcp__backlog__task_view ${task.id}.`,
     )
   }
 
@@ -224,7 +237,7 @@ export function DetailPage({ id, t, getTask, getDocument, openChatWithDraft, onB
       {taskState.phase === 'ready' && (
         <div className={css.detailBody}>
           <div className={css.detailLeft}>
-            {(docState.phase === 'none' || docState.phase === 'missing') && (
+            {docState.phase === 'missing' && (
               <div className={css.stateBlock}>
                 <span className={css.stateIcon} aria-hidden="true"><IconCodeOutline16 size={20} /></span>
                 <h3 className={css.stateTitle}>{t('detailNoDocument')}</h3>
@@ -261,10 +274,12 @@ export function DetailPage({ id, t, getTask, getDocument, openChatWithDraft, onB
           <DetailSidebar
             task={taskState.task}
             t={t}
-            promptText={promptText}
-            onPromptChange={setPromptText}
-            chatPending={chatPending}
-            onSend={() => { handleMiniPrompt(taskState.task) }}
+            sendToRequirement={sendToRequirement}
+            watchRequirementRunning={watchRequirementRunning}
+            openRequirementInMainChat={openRequirementInMainChat}
+            // Ход закончился — документ слева перечитывается сам. Ради этого мини-чат и
+            // существует: правка → результат виден на месте, без ухода в основное окно.
+            onTurnFinished={loadDoc}
           />
         </div>
       )}
@@ -272,64 +287,126 @@ export function DetailPage({ id, t, getTask, getDocument, openChatWithDraft, onB
   )
 }
 
+/** Что показывает правая колонка: мини-чат правок или карточку полей требования. */
+type SidebarTab = 'chat' | 'about'
+
 /**
- * Правая колонка: стадия (тот же STAGE_TONE/.groupDot, что превью), ссылки Confluence/эпик
- * (та же разметка `.previewField`/`.previewLink`, что ReadyBody в Preview.tsx — не копия
- * геометрии, переиспользованы классы), и мини-промт — короткий путь вместо полноценного
- * встроенного мини-чата (это следующий этап, см. план).
+ * Правая колонка: переключатель «Чат» / «О задаче» и под ним одна из двух панелей.
+ *
+ * До переключателя стадия и ссылки жили над мини-чатом постоянно и показывались только
+ * при наличии — у требования без Confluence и JIRA-эпика (например, PO-22) колонка
+ * выглядела так, будто полей не существует вовсе. Теперь ключевые поля собраны на своей
+ * вкладке и показываются ВСЕГДА, с прочерком вместо отсутствующего значения: то же
+ * правило, что и в превью (ReadyBody в Preview.tsx) — «секции всегда существуют, пустое
+ * поле — прочерк». Пустая ссылка это факт о задаче, а не повод спрятать строку.
  */
-function DetailSidebar({ task, t, promptText, onPromptChange, chatPending, onSend }: {
+function DetailSidebar({
+  task, t, sendToRequirement, watchRequirementRunning, openRequirementInMainChat, onTurnFinished,
+}: {
   task: BftTask
   t: (key: BftLocaleKey) => string
-  promptText: string
-  onPromptChange: (value: string) => void
-  chatPending: boolean
-  onSend: () => void
+  sendToRequirement(taskId: string, text: string): Promise<void>
+  watchRequirementRunning(taskId: string, onChange: (running: boolean) => void): () => void
+  openRequirementInMainChat(taskId: string): Promise<void>
+  onTurnFinished(): void
 }) {
-  const tone = { '--tone': STAGE_TONE[task.stage] } as CSSProperties
+  const [tab, setTab] = useState<SidebarTab>('chat')
   return (
     <div className={css.detailRight}>
-      <div className={css.previewField}>
-        <div className={css.previewFieldLabel}>{t('previewStage')}</div>
-        <div className={css.previewFieldValue}>
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <span className={css.groupDot} style={tone} aria-hidden="true" />
-            {task.stage}
-          </span>
-        </div>
+      {/* role="tablist" со стрелками не заводим: две кнопки-переключателя, у каждой
+          aria-selected — этого достаточно, чтобы состояние читалось скринридером. */}
+      <div className={css.sidebarTabs} role="tablist" aria-label={t('detailSidebarTabsLabel')}>
+        <button
+          type="button"
+          role="tab"
+          className={css.sidebarTab}
+          data-active={tab === 'chat' || undefined}
+          aria-selected={tab === 'chat'}
+          onClick={() => { setTab('chat') }}
+        >
+          {t('detailTabChat')}
+        </button>
+        <button
+          type="button"
+          role="tab"
+          className={css.sidebarTab}
+          data-active={tab === 'about' || undefined}
+          aria-selected={tab === 'about'}
+          onClick={() => { setTab('about') }}
+        >
+          {t('detailTabAbout')}
+        </button>
       </div>
-      {task.links.confluence && (
-        <div className={css.previewField}>
-          <div className={css.previewFieldLabel}>{t('previewLinksConfluence')}</div>
-          <div className={css.previewFieldValue}>
-            <a className={css.previewLink} href={task.links.confluence} target="_blank" rel="noopener">
-              {task.links.confluence}
-            </a>
-          </div>
-        </div>
-      )}
-      {task.links.epic && (
-        <div className={css.previewField}>
-          <div className={css.previewFieldLabel}>{t('previewLinksEpic')}</div>
-          <div className={css.previewFieldValue}>
-            <a className={css.previewLink} href={task.links.epic} target="_blank" rel="noopener">
-              {task.links.epic}
-            </a>
-          </div>
-        </div>
-      )}
-      <div className={css.previewField}>
-        <div className={css.previewFieldLabel}>{t('detailMiniPromptLabel')}</div>
-        <textarea
-          className={css.detailTextarea}
-          placeholder={t('detailMiniPromptLabel')}
-          value={promptText}
-          onChange={(event) => { onPromptChange(event.target.value) }}
+
+      {/* Мини-чат не размонтируется при уходе на «О задаче»: его лента отправленных правок
+          и подписка на ход агента живут в собственном состоянии (см. MiniChat.tsx), и
+          размонтирование стёрло бы и то и другое — вернувшись на вкладку, PO увидел бы
+          пустой чат и потерял бы индикатор незакончившегося хода. Поэтому вкладка
+          прячется стилем, а не условным рендером. */}
+      <div className={css.sidebarPane} hidden={tab !== 'chat'}>
+        <MiniChat
+          task={task}
+          t={t}
+          sendToRequirement={sendToRequirement}
+          watchRequirementRunning={watchRequirementRunning}
+          openRequirementInMainChat={openRequirementInMainChat}
+          onTurnFinished={onTurnFinished}
         />
       </div>
-      <Button variant="primary" className={css.fullWidth} disabled={chatPending} onClick={onSend}>
-        {t('detailMiniPromptSend')}
-      </Button>
+      {tab === 'about' && <AboutTask task={task} t={t} />}
+    </div>
+  )
+}
+
+/**
+ * Вкладка «О задаче»: ключевые поля требования — стадия, заказчик и адреса внешних систем
+ * (Confluence, JIRA-эпик, OKR, файл документа).
+ *
+ * Разметка и классы — те же `.previewField`/`.previewFieldLabel`/`.previewFieldValue`/
+ * `.previewLink`, что у ReadyBody в Preview.tsx: это переиспользование геометрии, а не
+ * её копия. Описание, SMART и how-to-demo сюда не дублируются — они принадлежат превью и
+ * самому документу слева, а эта вкладка отвечает на вопрос «куда идти по этой задаче».
+ */
+function AboutTask({ task, t }: { task: BftTask; t: (key: BftLocaleKey) => string }) {
+  const tone = { '--tone': STAGE_TONE[task.stage] } as CSSProperties
+  /** Прочерк вместо отсутствующего значения — то же соглашение, что в ReadyBody. */
+  const EMPTY = '—'
+
+  const link = (href: string | undefined): ReactNode => (href === undefined || href === ''
+    ? EMPTY
+    : (
+      <a className={css.previewLink} href={href} target="_blank" rel="noopener">
+        {href}
+      </a>
+      ))
+
+  const fields: Array<{ label: string; value: ReactNode }> = [
+    {
+      label: t('previewStage'),
+      value: (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <span className={css.groupDot} style={tone} aria-hidden="true" />
+          {task.stage}
+        </span>
+      ),
+    },
+    { label: t('previewCustomer'), value: task.customer ?? EMPTY },
+    { label: t('previewLinksConfluence'), value: link(task.links.confluence) },
+    { label: t('previewLinksEpic'), value: link(task.links.epic) },
+    { label: t('previewLinksOkr'), value: task.links.okr ?? EMPTY },
+    // Документ — локальный путь внутри воркспейса, а не адрес: ссылкой не делаем, иначе
+    // клик вёл бы в никуда. Сам документ и так открыт слева на этой же странице.
+    { label: t('previewLinksHtml'), value: task.links.html ?? EMPTY },
+  ]
+
+  return (
+    <div className={css.sidebarPane}>
+      {fields.map(field => (
+        <div key={field.label} className={css.previewField}>
+          <div className={css.previewFieldLabel}>{field.label}</div>
+          <div className={css.previewFieldValue}>{field.value}</div>
+        </div>
+      ))}
     </div>
   )
 }

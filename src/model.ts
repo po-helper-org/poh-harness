@@ -56,7 +56,7 @@ export interface BftTask extends BftTaskSummary {
   cancelReason?: string
 }
 
-/** Метка последней синхронизации из `.bft/index/last-sync.json`. */
+/** Метка последней синхронизации из `bft/index/last-sync.json`. */
 export interface BftLastSync {
   at: string
   checkedRows: number

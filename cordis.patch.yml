@@ -17,7 +17,13 @@
       name: dsh-plugin-bft
       config:
         backlogBin: backlog
-        docsPath: .bft/documentation
-        indexPath: .bft/index
+        docsPath: bft/documentation
+        indexPath: bft/index
+        # Рабочее пространство по умолчанию для работы с требованиями: каталог (внутри
+        # workspaceRoot), к которому привязываются все чаты по БФТ — мини-чат детальной
+        # страницы заводит сессию здесь, а не в текущем рабочем пространстве харнесса.
+        # Агент стартует там же, где лежат documentation/ и index/, а диалоги по
+        # требованиям собираются отдельной группой. Пустая строка выключает привязку.
+        sessionPath: bft
         taskType: bft
         teamName: GDS/Платформа

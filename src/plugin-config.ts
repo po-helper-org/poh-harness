@@ -10,6 +10,8 @@ export interface PluginConfig {
   backlogBin: string
   docsPath: string
   indexPath: string
+  /** Рабочее пространство по умолчанию для чатов по требованиям (см. BftConfig.sessionPath). */
+  sessionPath: string
   taskType: string
   teamName: string
 }
@@ -17,8 +19,12 @@ export interface PluginConfig {
 export const Config = z.object({
   workspaceRoot: z.string().required(),
   backlogBin: z.string().default('backlog'),
-  docsPath: z.string().default('.bft/documentation'),
-  indexPath: z.string().default('.bft/index'),
+  docsPath: z.string().default('bft/documentation'),
+  indexPath: z.string().default('bft/index'),
+  // Рабочее пространство по умолчанию для чатов по требованиям: сессии мини-чата
+  // привязываются к этому каталогу, а не к текущему рабочему пространству харнесса.
+  // Пустая строка выключает привязку (см. toBftConfig ниже и BftConfig.sessionPath).
+  sessionPath: z.string().default('bft'),
   taskType: z.string().default('bft'),
   teamName: z.string().default('GDS/Платформа'),
 })
@@ -30,7 +36,7 @@ export function toBftConfig(plugin: PluginConfig, env: Env): BftConfig {
   const workspaceRoot = plugin.workspaceRoot?.trim()
   if (!workspaceRoot) {
     throw new Error(
-      'в настройках плагина не задан workspaceRoot — укажите корень воркспейса, где лежат backlog/ и .bft/',
+      'в настройках плагина не задан workspaceRoot — укажите корень воркспейса, где лежат backlog/ и bft/',
     )
   }
 
@@ -45,6 +51,9 @@ export function toBftConfig(plugin: PluginConfig, env: Env): BftConfig {
     backlogBin: plugin.backlogBin,
     docsPath: plugin.docsPath,
     indexPath: plugin.indexPath,
+    // Пустая строка здесь осмысленна («не привязывать сессии»), поэтому просто нормализуем
+    // пробелы, а не подставляем умолчание вместо пустого значения.
+    sessionPath: plugin.sessionPath?.trim() ?? '',
     taskType: plugin.taskType,
     teamName: plugin.teamName,
     initiativesSheetUrl: value('BFT_INITIATIVES_SHEET_URL'),

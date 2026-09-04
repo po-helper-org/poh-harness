@@ -23,6 +23,15 @@ import type {} from '@deepseek-ai/dsh-client-locale/client'
 // Type-only: даёт декларацию `ctx.sessions` в `Context` + ISessions (цепочка запуска чата,
 // docs/client-wiring.md §1.2-1.3). Не в export const inject ниже — служба ленивая (см. openChatWithDraft).
 import type { ISessions } from '@deepseek-ai/dsh-api-session-controller/client'
+
+/**
+ * Идентификатор сессии, выведенный из самой службы, а не импортированный из
+ * `@deepseek-ai/dsh-session/types`: этот пакет не входит в зависимости плагина и из него не
+ * резолвится (@deepseek-ai/dsh-api-session-controller тянет его как свой внутренний тип), а
+ * `SessionId` наружу из `/client` не реэкспортирован. Вывод из `create()` даёт ровно тот же
+ * брендированный тип и не заводит зависимость, которой нет.
+ */
+type SessionId = Awaited<ReturnType<ISessions['create']>>
 // Type-only: даёт декларацию `ctx.workspaces` в `Context` + IWorkspaces/WorkspaceId — те же типы,
 // которыми сам харнесс определяет цель в startSession (navigation.ts:114-127).
 import type { IWorkspaces, WorkspaceId } from '@deepseek-ai/dsh-api-workspace-controller/client'
@@ -42,6 +51,7 @@ import type { RpcResult } from '../channel.js'
 import { ru, type BftLocaleKey } from './locales.js'
 import { RequirementsPanel, type RequirementsPanelInjected } from './Panel.js'
 import { panelClassNames as css, panelStyleText } from './Panel.styles.js'
+import { forgetRequirementSession, readRequirementSession, writeRequirementSession } from './session-map.js'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
   interface LocaleNamespaceMap { 'bft.requirements': BftLocaleKey }
@@ -145,6 +155,11 @@ export function apply(ctx: ClientContext): void {
   // Детальная страница (Task 3, DetailPage.tsx): документ требования, путь — из links.html.
   const getDocument = (path: string, signal: AbortSignal): Promise<RpcResult<unknown>> =>
     connection.rpc.call(CHANNEL, 'document', { path }, signal)
+  // Поиск документа по конвенции каталогов: клиент передаёт только идентификатор задачи и
+  // ничего не знает ни про пути, ни про формат ссылок. Поэтому изменения в навыках bft-*
+  // (префиксы, переименования каталогов, незарегистрированный HTML) его не касаются.
+  const findDocument = (id: string, signal: AbortSignal): Promise<RpcResult<unknown>> =>
+    connection.rpc.call(CHANNEL, 'findDocument', { id }, signal)
 
   // Цепочка «Обновить»/«Работать в чате» (docs/client-wiring.md, §1.3 и «Выводы для
   // реализации», п.1): uiWorkspace.connectWorkspace → sessions.scope →
@@ -193,6 +208,132 @@ export function apply(ctx: ClientContext): void {
   /** Кнопка «Обновить»: та же цепочка, зафиксированный черновик синка. */
   const openSyncChat = (): Promise<void> => openChatWithDraft(SYNC_COMMAND)
 
+  // ——— Мини-чат детальной страницы (MiniChat.tsx) ———
+  //
+  // Рабочее пространство по умолчанию для чатов по требованиям: канал отдаёт абсолютный путь
+  // каталога из настройки `sessionPath` (по умолчанию — внутренняя папка `bft`), а
+  // workspaces.create() по этому пути идемпотентно: хост сперва ищет уже
+  // зарегистрированное рабочее пространство (workspace-controller/src/commands.ts,
+  // `resolveByPath` → `created: false`) и заводит новое, только если его действительно нет.
+  // Поэтому повторные вызовы не плодят дубликатов, а результат можно спокойно кэшировать.
+
+  /**
+   * Идентификатор рабочего пространства БФТ, найденный один раз за загрузку страницы.
+   * `null` в кэше — «спрашивали, ответа нет» (привязка выключена или каталог не удалось
+   * зарегистрировать): повторно дёргать канал на каждое сообщение незачем.
+   */
+  let bftWorkspace: WorkspaceId | null | undefined
+  const resolveBftWorkspaceId = async (workspaces: IWorkspaces): Promise<WorkspaceId | undefined> => {
+    if (bftWorkspace !== undefined) return bftWorkspace ?? undefined
+    try {
+      const result = await connection.rpc.call(CHANNEL, 'sessionWorkspace', {})
+      // Привязка выключена пустым sessionPath — это осознанная настройка, а не сбой.
+      if (!result.ok || typeof result.value !== 'string') {
+        bftWorkspace = null
+        return undefined
+      }
+      const workspace = await workspaces.create({ path: result.value })
+      bftWorkspace = workspace.workspaceId
+      return workspace.workspaceId
+    } catch (error: unknown) {
+      // Каталога нет, путь не годится в рабочее пространство, канал недоступен — мини-чат
+      // от этого не должен ломаться: вызывающая сторона откатится к текущему рабочему
+      // пространству. Причину печатаем, чтобы молчаливой деградации не было.
+      console.error('[dsh-plugin-bft] рабочее пространство БФТ недоступно, беру текущее:', error)
+      bftWorkspace = null
+      return undefined
+    }
+  }
+
+  //
+  // Принципиальное отличие от openChatWithDraft выше: эта цепочка НИКОГДА не зовёт
+  // sessions.open() и не пишет черновик в композер основного окна. Она отправляет запрос
+  // прямо в сессию требования через session.prompt() — публичный метод ISession, которому
+  // навигация не нужна. Именно это и было сломано с точки зрения PO: правка в мини-чате
+  // уводила основной интерфейс в полноценный диалог, вместо того чтобы остаться на странице.
+  //
+  // sessions.binding(id) — «pure resolution — no staging, no window side effects»
+  // (session-controller/src/client/sessions/service.ts), то есть само получение сессии
+  // основное окно никуда не перетаскивает.
+
+  /**
+   * Сессия мини-чата для требования: закреплённая за ним (session-map.ts) либо новая.
+   * Закреплённая проверяется по актуальному списку хоста — запись в localStorage могла
+   * протухнуть (сессию удалили, база переехала). Протухла — забываем и заводим новую,
+   * это штатный путь, а не ошибка.
+   */
+  const resolveRequirementSession = async (taskId: string): Promise<{
+    sessions: ISessions
+    sessionId: SessionId
+  }> => {
+    const sessions = ctx.get('sessions')
+    const workspaces = ctx.get('workspaces')
+    if (sessions === undefined || workspaces === undefined) {
+      throw new Error('dsh-plugin-bft: mini-chat unavailable — sessions/workspaces not provided')
+    }
+    const remembered = readRequirementSession(taskId) as SessionId | undefined
+    if (remembered !== undefined) {
+      if (sessions.list.getSnapshot().byId[remembered] !== undefined) {
+        return { sessions, sessionId: remembered }
+      }
+      forgetRequirementSession(taskId)
+    }
+    // Рабочее пространство по умолчанию (настройка `sessionPath`, по умолчанию внутренняя
+    // папка `bft`) — предпочтительная цель: агент оказывается прямо там, где лежат документы
+    // требований, а чаты по БФТ собираются в отдельную группу и не смешиваются с общими.
+    // Не получилось (привязка выключена, каталога нет, служба недоступна) — откатываемся к
+    // текущему рабочему пространству харнесса, как было до этой настройки: мини-чат должен
+    // деградировать, а не переставать работать из-за конфигурации.
+    const workspaceId = await resolveBftWorkspaceId(workspaces)
+      ?? resolveWorkspaceId(sessions, workspaces)
+    if (workspaceId === undefined) throw new Error('dsh-plugin-bft: mini-chat: no workspace to create a session in')
+    const created = await sessions.create({ workspaceId })
+    writeRequirementSession(taskId, created)
+    return { sessions, sessionId: created }
+  }
+
+  /**
+   * Отправить инструкцию в сессию требования, не трогая основной интерфейс.
+   * Режим 'queue': если агент сейчас занят, правка встанет в очередь и выполнится следом,
+   * а не оборвёт текущий ход (для коротких уточнений по документу это то поведение, которое
+   * не теряет работу).
+   */
+  const sendToRequirement = async (taskId: string, text: string): Promise<void> => {
+    const { sessions, sessionId } = await resolveRequirementSession(taskId)
+    const binding = sessions.binding(sessionId)
+    if (binding === undefined) throw new Error(`dsh-plugin-bft: mini-chat: no binding for session ${String(sessionId)}`)
+    const result = await binding.session.prompt([{ type: 'text', text }], 'queue')
+    if (!result.ok) throw new Error(`dsh-plugin-bft: mini-chat: ${result.error.code}: ${result.error.message}`)
+  }
+
+  /**
+   * Наблюдение за тем, работает ли агент над требованием. Флаг `running` хост проталкивает
+   * в каждую созданную сессию из авторитетного списка независимо от того, открыта ли она
+   * (session-controller/src/client/sessions/manager.ts) — поэтому статус живой без навигации.
+   * Возвращает функцию отписки; сессии ещё может не быть — тогда это просто `false`.
+   */
+  const watchRequirementRunning = (taskId: string, onChange: (running: boolean) => void): (() => void) => {
+    const sessions = ctx.get('sessions')
+    if (sessions === undefined) return () => {}
+    const read = (): boolean => {
+      const sessionId = readRequirementSession(taskId) as SessionId | undefined
+      if (sessionId === undefined) return false
+      return sessions.list.getSnapshot().byId[sessionId]?.running ?? false
+    }
+    onChange(read())
+    return sessions.list.subscribe(() => { onChange(read()) })
+  }
+
+  /**
+   * Явный, а не автоматический переход в основное окно: мини-чат намеренно не показывает
+   * ответы агента (см. комментарий в MiniChat.tsx), и это единственный способ их прочитать.
+   * Тот же уход, что раньше происходил сам собой — теперь только по осознанному нажатию.
+   */
+  const openRequirementInMainChat = async (taskId: string): Promise<void> => {
+    const { sessions, sessionId } = await resolveRequirementSession(taskId)
+    sessions.open(sessionId)
+  }
+
   ctx.slots.inject('sidebar.footer.action', () => ctx.slots.register(
     { name: 'sidebar.footer.action', id: 'bft-requirements', locale: NS, store: panelStore },
     RequirementsButton,
@@ -208,8 +349,12 @@ export function apply(ctx: ClientContext): void {
         listRequirements,
         getTask,
         getDocument,
+        findDocument,
         openSyncChat,
         openChatWithDraft,
+        sendToRequirement,
+        watchRequirementRunning,
+        openRequirementInMainChat,
       }),
     },
     RequirementsPanel,

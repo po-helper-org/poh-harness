@@ -15,8 +15,8 @@ test('пустая строка равносильна незаданной пе
 test('умолчания работают без единой переменной, кроме корня', () => {
   const c = loadConfig(MINIMAL)
   assert.equal(c.backlogBin, 'backlog')
-  assert.equal(c.docsPath, '.bft/documentation')
-  assert.equal(c.indexPath, '.bft/index')
+  assert.equal(c.docsPath, 'bft/documentation')
+  assert.equal(c.indexPath, 'bft/index')
   assert.equal(c.taskType, 'bft')
   assert.equal(c.teamName, 'GDS/Платформа')
   assert.equal(c.jira.baseUrl, 'https://jira.mts.ru')
@@ -59,4 +59,26 @@ test('таблица инициатив необязательна', () => {
   assert.equal(loadConfig(MINIMAL).initiativesSheetUrl, undefined)
   const c = loadConfig({ ...MINIMAL, BFT_INITIATIVES_SHEET_URL: 'https://docs.google.com/spreadsheets/d/x' })
   assert.equal(c.initiativesSheetUrl, 'https://docs.google.com/spreadsheets/d/x')
+})
+
+test('рабочее пространство чатов по умолчанию — внутренняя папка bft', () => {
+  assert.equal(loadConfig(MINIMAL).sessionPath, 'bft')
+})
+
+test('рабочее пространство чатов переопределяется окружением', () => {
+  assert.equal(loadConfig({ ...MINIMAL, BFT_SESSION_PATH: 'bft/chats' }).sessionPath, 'bft/chats')
+})
+
+test('пустой BFT_SESSION_PATH выключает привязку, а не возвращает умолчание', () => {
+  // Отличие от остальных переменных: пустая строка здесь осмысленна («не привязывать»),
+  // поэтому она не должна трактоваться как «переменная не задана».
+  assert.equal(loadConfig({ ...MINIMAL, BFT_SESSION_PATH: '' }).sessionPath, '')
+})
+
+test('сводка сообщает, куда привязаны чаты по требованиям', () => {
+  assert.match(describeConfig(loadConfig(MINIMAL)).join('\n'), /рабочее пространство чатов: bft/)
+  assert.match(
+    describeConfig(loadConfig({ ...MINIMAL, BFT_SESSION_PATH: '' })).join('\n'),
+    /рабочее пространство чатов: не привязано \(текущее\)/,
+  )
 })

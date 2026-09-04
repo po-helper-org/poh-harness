@@ -6,8 +6,8 @@ test('обязателен только корень воркспейса', () =
   const parsed = Config({ workspaceRoot: '/w' })
   assert.equal(parsed.workspaceRoot, '/w')
   assert.equal(parsed.backlogBin, 'backlog')
-  assert.equal(parsed.docsPath, '.bft/documentation')
-  assert.equal(parsed.indexPath, '.bft/index')
+  assert.equal(parsed.docsPath, 'bft/documentation')
+  assert.equal(parsed.indexPath, 'bft/index')
   assert.equal(parsed.taskType, 'bft')
   assert.equal(parsed.teamName, 'GDS/Платформа')
 })
@@ -48,4 +48,20 @@ test('пустой корень воркспейса отвергается пр
 
 test('корень воркспейса очищается от краевых пробелов', () => {
   assert.equal(toBftConfig(Config({ workspaceRoot: '  /w  ' }), {}).workspaceRoot, '/w')
+})
+
+test('рабочее пространство чатов по умолчанию — внутренняя папка bft', () => {
+  assert.equal(toBftConfig(Config({ workspaceRoot: '/w' }), {}).sessionPath, 'bft')
+})
+
+test('рабочее пространство чатов переопределяется строкой профиля', () => {
+  const config = toBftConfig(Config({ workspaceRoot: '/w', sessionPath: 'bft/chats' }), {})
+  assert.equal(config.sessionPath, 'bft/chats')
+})
+
+test('пустой sessionPath — осознанное «не привязывать», а не повод для умолчания', () => {
+  // Отличается от остальных путей: пустая строка здесь не «значение не задано», а
+  // выключенная привязка, поэтому подставлять 'bft' обратно нельзя.
+  assert.equal(toBftConfig(Config({ workspaceRoot: '/w', sessionPath: '' }), {}).sessionPath, '')
+  assert.equal(toBftConfig(Config({ workspaceRoot: '/w', sessionPath: '   ' }), {}).sessionPath, '')
 })

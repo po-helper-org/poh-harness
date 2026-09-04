@@ -86,6 +86,23 @@ export const panelClassNames = {
   detailRight: 'bft-detail-right',
   detailFrame: 'bft-detail-frame',
   detailTextarea: 'bft-detail-textarea',
+  // Переключатель правой колонки «Чат» / «О задаче» (DetailSidebar в DetailPage.tsx) и
+  // общая обёртка её вкладок. Вкладка «О задаче» своей геометрии не заводит вовсе —
+  // переиспользует .previewField/.previewFieldLabel/.previewFieldValue/.previewLink.
+  sidebarTabs: 'bft-sidebar-tabs',
+  sidebarTab: 'bft-sidebar-tab',
+  sidebarPane: 'bft-sidebar-pane',
+  // Мини-чат правой колонки (MiniChat.tsx): лента отправленных правок, статус хода и ввод.
+  // Переиспользует .detailTextarea (поле ввода), .previewFieldLabel (заголовок) и .fullWidth
+  // (кнопки) — свои классы только там, где готовой геометрии нет: скроллящаяся лента и реплика.
+  miniChat: 'bft-mini-chat',
+  miniChatLog: 'bft-mini-chat-log',
+  miniChatItem: 'bft-mini-chat-item',
+  miniChatItemText: 'bft-mini-chat-item-text',
+  miniChatItemError: 'bft-mini-chat-item-error',
+  miniChatStatus: 'bft-mini-chat-status',
+  miniChatSpinner: 'bft-mini-chat-spinner',
+  miniChatHint: 'bft-mini-chat-hint',
   // Футер списка панели (Task 4): держит кнопку «Статус проработки» вне скроллящегося
   // .body — сама кнопка теперь настоящий <Button variant="outline"> (Task 4 визуального
   // выравнивания, см. Panel.tsx), здесь только контейнер-полоска.
@@ -434,6 +451,51 @@ export const panelStyleText = `
   overflow-y: auto;
 }
 
+/* Переключатель «Чат» / «О задаче» (DetailSidebar). Сегментированная пара кнопок в общей
+   подложке: активная поднимается на светлую поверхность, неактивная сливается с фоном. */
+.${c.sidebarTabs} {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.${c.sidebarTab} {
+  flex: 1;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--dsw-alias-label-caption);
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  cursor: pointer;
+  transition: background 120ms ease-out, color 120ms ease-out;
+}
+.${c.sidebarTab}:hover { color: var(--dsw-alias-label-primary); }
+.${c.sidebarTab}[data-active] {
+  background: var(--dsw-specific-selector);
+  color: var(--dsw-alias-label-primary);
+}
+
+/* Тело вкладки занимает остаток колонки: мини-чат внутри сам отдаёт всю свободную высоту
+   ленте (см. .bft-mini-chat), а карточка полей просто выкладывается сверху вниз. */
+.${c.sidebarPane} {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+/* Скрытая вкладка чата остаётся смонтированной (лента правок и подписка на ход агента
+   живут в её состоянии), поэтому её прячет атрибут hidden. Правило обязательно: браузерное
+   умолчание для hidden слабее заданного выше display:flex по специфичности класса, и без
+   этой строки скрытая вкладка продолжала бы рисоваться. */
+.${c.sidebarPane}[hidden] { display: none; }
+
 .${c.detailFrame} { flex: 1; width: 100%; height: 100%; border: none; }
 
 .${c.detailTextarea} {
@@ -451,6 +513,90 @@ export const panelStyleText = `
 }
 .${c.detailTextarea}::placeholder { color: var(--dsw-alias-label-caption); }
 .${c.detailTextarea}:focus { outline: none; box-shadow: 0 0 0 1.5px var(--dsw-alias-border-l3); }
+
+/* Мини-чат (MiniChat.tsx). Занимает остаток правой колонки и отдаёт всю свободную высоту
+   ленте: поле ввода и кнопки — фиксированной высоты внизу, лента растягивается и скроллится
+   сама. Так при длинной переписке правок ввод всегда остаётся на виду. */
+.${c.miniChat} {
+  flex: 1;
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.${c.miniChatLog} {
+  flex: 1;
+  min-height: 80px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+/* Реплика пользователя. Ответов агента в ленте нет by design (см. шапку MiniChat.tsx),
+   поэтому «своя/чужая» сторона не нужна — все реплики одного вида. */
+.${c.miniChatItem} {
+  border-radius: 8px;
+  padding: 6px 8px;
+  background: var(--dsw-specific-selector);
+  /* Отправляется — приглушена; подтверждена хостом — обычная; ошибка — тон ошибки ниже. */
+  opacity: 1;
+  transition: opacity 120ms ease-out;
+}
+.${c.miniChatItem}[data-status="sending"] { opacity: 0.55; }
+.${c.miniChatItem}[data-status="error"] { box-shadow: inset 0 0 0 1px var(--dsw-alias-label-error); }
+
+.${c.miniChatItemText} {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-primary);
+  /* Инструкции пишутся многострочно и с длинными путями к документам — переносим и то и другое. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.${c.miniChatItemError} {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-error);
+  overflow-wrap: anywhere;
+}
+
+/* «Агент работает» — единственный живой сигнал хода в мини-чате, поэтому он в ленте, а не
+   в углу: взгляд после отправки остаётся там же, где только что появилась реплика. */
+.${c.miniChatStatus} {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 2px 2px 4px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-caption);
+}
+
+.${c.miniChatSpinner} {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--dsw-alias-label-caption);
+  animation: bft-panel-skeleton-pulse 1.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .${c.miniChatSpinner} { animation: none; }
+}
+
+.${c.miniChatHint} {
+  margin: 0;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-caption);
+}
 
 /* Футер списка панели (Task 4): та же геометрия ряда с обводкой сверху, что и .previewFooter —
    отдельный класс, а не переиспользование previewFooter, потому что семантически это футер

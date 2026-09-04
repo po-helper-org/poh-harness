@@ -86,8 +86,23 @@ export async function dispatch(
         return ok(await reader.readDocument(path, signal))
       }
 
+      // Поиск документа по конвенции каталогов: клиент передаёт только идентификатор задачи
+      // и ничего не знает ни про пути, ни про формат ссылок. Поэтому смена формата ссылок
+      // в навыке не требует изменений ни в клиенте, ни в протоколе канала.
+      case 'findDocument': {
+        const id = stringField(payload, 'id')
+        if (!id) return fail('bad-request', 'не передан идентификатор требования')
+        return ok(await reader.findDocument(id, signal))
+      }
+
       case 'lastSync':
         return ok(await reader.readLastSync(signal))
+
+      // Рабочее пространство по умолчанию для чатов по требованиям: абсолютный путь каталога
+      // (по умолчанию — внутренняя папка `bft`) либо `null`, если привязка выключена. Клиент
+      // сам разрешить его не может — корень воркспейса живёт только на node-половине.
+      case 'sessionWorkspace':
+        return ok(reader.resolveSessionPath())
 
       default:
         return fail('bad-request', `неизвестная подкоманда «${endpoint}»`)

@@ -17,7 +17,7 @@ export interface BftServiceAccess {
 }
 
 export interface BftConfig {
-  /** Корень воркспейса: внутри него лежат `backlog/`, `.bft/documentation/`, `.bft/index/`. */
+  /** Корень воркспейса: внутри него лежат `backlog/`, `bft/documentation/`, `bft/index/`. */
   workspaceRoot: string
   /** Исполняемый файл Backlog.md. Обычно просто `backlog` из PATH. */
   backlogBin: string
@@ -25,6 +25,16 @@ export interface BftConfig {
   docsPath: string
   /** Каталог индекса БФТ, относительно корня воркспейса. Там же лежит `last-sync.json`. */
   indexPath: string
+  /**
+   * Рабочее пространство по умолчанию для чатов по требованиям, относительно корня
+   * воркспейса. Именно к этому каталогу привязываются сессии мини-чата детальной страницы
+   * (MiniChat.tsx): агент оказывается прямо там, где лежат документы БФТ, а сами диалоги
+   * группируются в отдельное рабочее пространство и не смешиваются с общими чатами.
+   *
+   * Пустая строка означает «не привязывать» — тогда мини-чат откатывается к текущему
+   * рабочему пространству харнесса, ровно как вёл себя до появления этой настройки.
+   */
+  sessionPath: string
   /** Тип задач Backlog.md, который считается требованием БФТ. */
   taskType: string
   /** Значение колонки Team в таблице инициатив, которое считается нашей командой. */
@@ -38,8 +48,11 @@ export interface BftConfig {
 /** Значения по умолчанию — рабочие без единой переменной окружения, кроме корня воркспейса. */
 const DEFAULTS = {
   backlogBin: 'backlog',
-  docsPath: '.bft/documentation',
-  indexPath: '.bft/index',
+  docsPath: 'bft/documentation',
+  indexPath: 'bft/index',
+  // Внутренняя папка bft — рабочее пространство по умолчанию для чатов по требованиям:
+  // тот же каталог, внутри которого уже лежат documentation/ и index/.
+  sessionPath: 'bft',
   taskType: 'bft',
   teamName: 'GDS/Платформа',
   jiraBaseUrl: 'https://jira.mts.ru',
@@ -65,7 +78,7 @@ export function loadConfig(env: Env): BftConfig {
   const workspaceRoot = value(env, 'BFT_WORKSPACE_ROOT')
   if (!workspaceRoot) {
     throw new Error(
-      'не задан BFT_WORKSPACE_ROOT — укажите корень воркспейса, где лежат backlog/ и .bft/',
+      'не задан BFT_WORKSPACE_ROOT — укажите корень воркспейса, где лежат backlog/ и bft/',
     )
   }
 
@@ -74,6 +87,12 @@ export function loadConfig(env: Env): BftConfig {
     backlogBin: value(env, 'BFT_BACKLOG_BIN') ?? DEFAULTS.backlogBin,
     docsPath: value(env, 'BFT_DOCS_PATH') ?? DEFAULTS.docsPath,
     indexPath: value(env, 'BFT_INDEX_PATH') ?? DEFAULTS.indexPath,
+    // Отдельно от value(): здесь пустая строка — не «переменная не задана», а осмысленное
+    // «не привязывать сессии никуда». Поэтому смотрим на само наличие ключа, а не на
+    // непустоту значения, иначе выключить привязку через окружение было бы нечем.
+    sessionPath: env['BFT_SESSION_PATH'] === undefined
+      ? DEFAULTS.sessionPath
+      : env['BFT_SESSION_PATH'].trim(),
     taskType: value(env, 'BFT_TASK_TYPE') ?? DEFAULTS.taskType,
     teamName: value(env, 'BFT_TEAM_NAME') ?? DEFAULTS.teamName,
     initiativesSheetUrl: value(env, 'BFT_INITIATIVES_SHEET_URL'),
@@ -99,6 +118,7 @@ export function describeConfig(config: BftConfig): string[] {
     `backlog: ${config.backlogBin}`,
     `документы: ${config.docsPath}`,
     `индекс: ${config.indexPath}`,
+    `рабочее пространство чатов: ${config.sessionPath === '' ? 'не привязано (текущее)' : config.sessionPath}`,
     `тип задач: ${config.taskType}`,
     `команда: ${config.teamName}`,
     `таблица инициатив: ${config.initiativesSheetUrl ?? 'не задана'}`,

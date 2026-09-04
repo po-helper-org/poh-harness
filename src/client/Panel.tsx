@@ -57,6 +57,12 @@ export interface RequirementsPanelInjected {
   /** Документ требования: канал `/bft`, подкоманда `document`, см. DetailPage.tsx (Task 3). */
   getDocument(path: string, signal: AbortSignal): Promise<RpcResult<unknown>>
   /**
+   * Поиск документа по конвенции каталогов: канал `/bft`, подкоманда `findDocument`.
+   * Основной путь получения документа на детальной странице: в отличие от `getDocument`
+   * не требует, чтобы навык записал ссылку на файл в строго определённом формате.
+   */
+  findDocument(id: string, signal: AbortSignal): Promise<RpcResult<unknown>>
+  /**
    * Кнопка «Обновить»: цепочка connectWorkspace → scope → setDraft → open, собранная в
    * src/client/index.tsx (docs/client-wiring.md, §1.3). Открывает чат с подставленной
    * командой синка `/bft-needed-list` — без автоотправки, Enter жмёт PO. Промис отклоняется,
@@ -70,6 +76,16 @@ export interface RequirementsPanelInjected {
    * каких условиях, см. index.tsx.
    */
   openChatWithDraft(draft: string): Promise<void>
+  /**
+   * Мини-чат детальной страницы (MiniChat.tsx): отправка правки прямо в сессию требования
+   * через session.prompt(), БЕЗ sessions.open() и без черновика в композере основного окна.
+   * Именно этим он отличается от openChatWithDraft выше — диалог остаётся на странице.
+   */
+  sendToRequirement(taskId: string, text: string): Promise<void>
+  /** Мини-чат: подписка на «агент занят» по требованию; возвращает функцию отписки. */
+  watchRequirementRunning(taskId: string, onChange: (running: boolean) => void): () => void
+  /** Мини-чат: явный переход в основное окно — единственный способ прочитать ответы агента. */
+  openRequirementInMainChat(taskId: string): Promise<void>
 }
 
 export type RequirementsPanelProps =
@@ -117,8 +133,12 @@ export function RequirementsPanel({
   listRequirements,
   getTask,
   getDocument,
+  findDocument,
   openSyncChat,
   openChatWithDraft,
+  sendToRequirement,
+  watchRequirementRunning,
+  openRequirementInMainChat,
   t,
 }: RequirementsPanelProps) {
   const isOpen = useStore(state => state.open)
@@ -226,8 +246,11 @@ export function RequirementsPanel({
         id={route.id}
         t={t}
         getTask={getTask}
-        getDocument={getDocument}
+        findDocument={findDocument}
         openChatWithDraft={openChatWithDraft}
+        sendToRequirement={sendToRequirement}
+        watchRequirementRunning={watchRequirementRunning}
+        openRequirementInMainChat={openRequirementInMainChat}
         onBack={() => { setRoute(route.back) }}
         onClose={() => { actions.close() }}
       />
