@@ -11,9 +11,9 @@ const CONFIG: BftConfig = {
   indexPath: 'bft/index',
   sessionPath: 'bft',
   taskType: 'bft',
-  teamName: 'GDS/Платформа',
-  jira: { baseUrl: 'https://jira.mts.ru' },
-  confluence: { baseUrl: 'https://confluence.mts.ru' },
+  teamName: 'PO team',
+  jira: { baseUrl: 'https://jira.example.com' },
+  confluence: { baseUrl: 'https://confluence.example.com' },
 }
 
 const LIST = `To Do:

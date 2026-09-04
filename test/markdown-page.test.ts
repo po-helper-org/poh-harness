@@ -50,8 +50,8 @@ test('жирный, курсив и код разбираются', () => {
 })
 
 test('ссылки только http(s); прочие схемы остаются текстом', () => {
-  const ok = markdownToPage('[тут](https://jira.mts.ru/browse/X-1)', 'letter.md')
-  assert.match(ok, /<a href="https:\/\/jira\.mts\.ru\/browse\/X-1"/)
+  const ok = markdownToPage('[тут](https://jira.example.com/browse/X-1)', 'letter.md')
+  assert.match(ok, /<a href="https:\/\/jira\.example\.com\/browse\/X-1"/)
   const bad = markdownToPage('[клик](javascript:alert(1))', 'letter.md')
   assert.ok(!bad.includes('href="javascript'))
 })
