@@ -3,10 +3,8 @@
 Задача 4 плана «Сквозной скелет раздела Управление требованиями». Кода не писали, файлы
 харнесса не трогали. Все ссылки — на рабочие копии:
 
-- монорепозиторий харнесса: `/Users/aleksishmanov/projects/mts-org/ishmanov-cortex/harness-ui/`
-  (ниже — `harness-ui/…`);
-- прецедент стороннего плагина:
-  `/Users/aleksishmanov/projects/mts-org/ishmanov-cortex/harness-ui-plugins/dsh-plugin-subscriptions/`
+- монорепозиторий харнесса: `<воркспейс>/harness-ui/` (ниже — `harness-ui/…`);
+- прецедент стороннего плагина: `<воркспейс>/harness-ui-plugins/dsh-plugin-subscriptions/`
   (ниже — `dsh-plugin-subscriptions/…`).
 
 Догадки помечены словом **[догадка]**. Всё остальное — прочитано в коде.

@@ -9,7 +9,7 @@ test('обязателен только корень воркспейса', () =
   assert.equal(parsed.docsPath, 'bft/documentation')
   assert.equal(parsed.indexPath, 'bft/index')
   assert.equal(parsed.taskType, 'bft')
-  assert.equal(parsed.teamName, 'GDS/Платформа')
+  assert.equal(parsed.teamName, 'PO team')
 })
 
 test('значения строки профиля перекрывают умолчания', () => {
@@ -27,11 +27,23 @@ test('токены берутся из окружения, а не из стро
   assert.equal(config.confluence.token, 'секрет-conf')
 })
 
-test('без токенов в окружении конфигурация всё равно собирается', () => {
+test('без токенов и хостов в окружении конфигурация всё равно собирается', () => {
   const config = toBftConfig(Config({ workspaceRoot: '/w' }), {})
   assert.equal(config.jira.token, undefined)
   assert.equal(config.confluence.token, undefined)
-  assert.equal(config.jira.baseUrl, 'https://jira.mts.ru')
+  // Хост не угадывается по умолчанию — без JIRA_HOST/CONFLUENCE_HOST распознавание
+  // эпик- и Confluence-ссылок остаётся выключенным (см. classifyLinks/LinkHosts).
+  assert.equal(config.jira.baseUrl, undefined)
+  assert.equal(config.confluence.baseUrl, undefined)
+})
+
+test('JIRA_HOST/CONFLUENCE_HOST из окружения попадают в конфигурацию', () => {
+  const config = toBftConfig(Config({ workspaceRoot: '/w' }), {
+    JIRA_HOST: 'https://jira.example.com',
+    CONFLUENCE_HOST: 'https://confluence.example.com',
+  })
+  assert.equal(config.jira.baseUrl, 'https://jira.example.com')
+  assert.equal(config.confluence.baseUrl, 'https://confluence.example.com')
 })
 
 test('пути из строки профиля доезжают до конфигурации ядра', () => {

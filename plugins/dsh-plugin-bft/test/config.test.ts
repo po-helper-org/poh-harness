@@ -18,9 +18,11 @@ test('умолчания работают без единой переменно
   assert.equal(c.docsPath, 'bft/documentation')
   assert.equal(c.indexPath, 'bft/index')
   assert.equal(c.taskType, 'bft')
-  assert.equal(c.teamName, 'GDS/Платформа')
-  assert.equal(c.jira.baseUrl, 'https://jira.mts.ru')
-  assert.equal(c.confluence.baseUrl, 'https://confluence.mts.ru')
+  assert.equal(c.teamName, 'PO team')
+  // Хост не угадывается по умолчанию: без JIRA_HOST/CONFLUENCE_HOST распознавание
+  // эпик- и Confluence-ссылок остаётся выключенным (см. classifyLinks/LinkHosts).
+  assert.equal(c.jira.baseUrl, undefined)
+  assert.equal(c.confluence.baseUrl, undefined)
 })
 
 test('окружение перекрывает умолчания', () => {
@@ -48,11 +50,21 @@ test('токены читаются из окружения', () => {
 })
 
 test('сводка сообщает о наличии токена, но не печатает его', () => {
-  const lines = describeConfig(loadConfig({ ...MINIMAL, JIRA_TOKEN: 'очень-секретный-токен' }))
+  const lines = describeConfig(loadConfig({
+    ...MINIMAL,
+    JIRA_HOST: 'https://jira.example.com',
+    JIRA_TOKEN: 'очень-секретный-токен',
+  }))
   const text = lines.join('\n')
   assert.ok(!text.includes('очень-секретный-токен'), 'токен не должен попадать в вывод')
-  assert.match(text, /JIRA: https:\/\/jira\.mts\.ru, токен задан/)
+  assert.match(text, /JIRA: https:\/\/jira\.example\.com, токен задан/)
   assert.match(text, /Confluence: .*токен не задан/)
+})
+
+test('сводка сообщает, что хост не настроен', () => {
+  const text = describeConfig(loadConfig(MINIMAL)).join('\n')
+  assert.match(text, /JIRA: не задана \(JIRA_HOST\)/)
+  assert.match(text, /Confluence: не задана \(CONFLUENCE_HOST\)/)
 })
 
 test('таблица инициатив необязательна', () => {

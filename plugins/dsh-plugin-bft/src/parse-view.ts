@@ -1,4 +1,4 @@
-import { classifyLinks } from './classify-links.js'
+import { classifyLinks, type LinkHosts } from './classify-links.js'
 import { CANON_ORDER, type BftPriority, type BftStage, type BftTask } from './model.js'
 
 const STAGES = new Set<string>(CANON_ORDER)
@@ -30,8 +30,10 @@ function section(stdout: string, name: string): string {
  *
  * `docsPath` нужен только для распознавания ссылки на документ; не задан — берётся
  * умолчание из `classifyLinks`, поэтому вызовы из тестов и утилит остаются однострочными.
+ * `hosts` — хосты Jira/Confluence для распознавания эпик- и Confluence-ссылок
+ * (см. `LinkHosts`); не переданы — оба вида остаются в `links.other`.
  */
-export function parseTaskView(stdout: string, docsPath?: string): BftTask {
+export function parseTaskView(stdout: string, docsPath?: string, hosts?: LinkHosts): BftTask {
   const normalized = stdout.replace(/^﻿/, '').replace(/\r\n?/g, '\n')
 
   const head = TITLE_RE.exec(normalized)
@@ -84,7 +86,7 @@ export function parseTaskView(stdout: string, docsPath?: string): BftTask {
     description,
     smart,
     howToDemo,
-    links: classifyLinks(refs, docsPath),
+    links: classifyLinks(refs, docsPath, hosts),
     cancelReason,
   }
 }

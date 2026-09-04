@@ -1,10 +1,19 @@
 import { normalizeDocsRef } from './document-source.js'
 import type { BftLinks } from './model.js'
 
-const EPIC_RE = /^https?:\/\/jira\.mts\.ru\/browse\/[A-Z]+-\d+/
-
 /** Каталог документов по умолчанию — совпадает с `DEFAULTS.docsPath` в config.ts. */
 const DEFAULT_DOCS_PATH = 'bft/documentation'
+
+/**
+ * Хосты трекера/вики, по которым распознаются эпик- и Confluence-ссылки.
+ * Хост не задан (нет `JIRA_HOST`/`CONFLUENCE_HOST` в окружении) — соответствующий
+ * вид не распознаётся вовсе, ссылка остаётся в `other`: ничего не угадывается по
+ * захардкоженному домену конкретного развёртывания.
+ */
+export interface LinkHosts {
+  jiraHost?: string
+  confluenceHost?: string
+}
 
 /**
  * Ссылка на HTML-документ требования — любая, ведущая внутрь каталога документов.
@@ -20,22 +29,36 @@ function htmlRef(ref: string, docsPath: string): string | null {
   return normalized
 }
 
-function isConfluenceUrl(ref: string): boolean {
+function hostnameOf(ref: string): string | undefined {
   try {
-    return new URL(ref).hostname === 'confluence.mts.ru'
+    return new URL(ref).hostname
   } catch {
-    // Не парсится как URL — точно не ссылка на Confluence, идём дальше по цепочке проверок.
-    return false
+    // Не парсится как URL — точно не ссылка, идём дальше по цепочке проверок.
+    return undefined
   }
+}
+
+function isEpicUrl(ref: string, jiraHost: string | undefined): boolean {
+  return jiraHost !== undefined && hostnameOf(ref) === jiraHost && /\/browse\/[A-Z]+-\d+/.test(ref)
+}
+
+function isConfluenceUrl(ref: string, confluenceHost: string | undefined): boolean {
+  return confluenceHost !== undefined && hostnameOf(ref) === confluenceHost
 }
 
 /**
  * Раскладывает ссылки из `--ref` по видам.
  * У OKR нет домена — они лежат локально в GROUND/NEXUS/strategy, поэтому
- * единственный надёжный признак это явный префикс `okr:`.
+ * единственный надёжный признак это явный префикс `okr:`. Эпик и Confluence
+ * распознаются по хосту из `hosts` (те же значения, что `BftConfig.jira.baseUrl` /
+ * `confluence.baseUrl`); хост не настроен — вид не распознаётся.
  * Второй и последующие адреса одного вида уходят в `other`, чтобы ничего не пропало.
  */
-export function classifyLinks(refs: string[], docsPath: string = DEFAULT_DOCS_PATH): BftLinks {
+export function classifyLinks(
+  refs: string[],
+  docsPath: string = DEFAULT_DOCS_PATH,
+  hosts: LinkHosts = {},
+): BftLinks {
   const links: BftLinks = { other: [] }
 
   for (const raw of refs) {
@@ -46,9 +69,9 @@ export function classifyLinks(refs: string[], docsPath: string = DEFAULT_DOCS_PA
 
     const html = links.html === undefined ? htmlRef(ref, docsPath) : null
 
-    if (links.confluence === undefined && isConfluenceUrl(ref)) {
+    if (links.confluence === undefined && isConfluenceUrl(ref, hosts.confluenceHost)) {
       links.confluence = ref
-    } else if (links.epic === undefined && EPIC_RE.test(ref)) {
+    } else if (links.epic === undefined && isEpicUrl(ref, hosts.jiraHost)) {
       links.epic = ref
     } else if (links.okr === undefined && ref.startsWith('okr:')) {
       links.okr = ref.slice('okr:'.length)

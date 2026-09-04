@@ -87,8 +87,14 @@ test('HowToDemo собирает из пунктов приёмки в поря�
 })
 
 test('ссылки разбирает и раскладывает', () => {
-  const t = parseTaskView(FILLED)
+  const t = parseTaskView(FILLED, undefined, { confluenceHost: 'confluence.mts.ru' })
   assert.equal(t.links.confluence, 'https://confluence.mts.ru/pages/viewpage.action?pageId=2472119875')
+  assert.equal(t.links.html, 'bft/documentation/vk-tickets-ticketland-widget/vk-tickets-ticketland-widget.html')
+})
+
+test('без настроенных хостов confluence-ссылка остаётся просто ссылкой', () => {
+  const t = parseTaskView(FILLED)
+  assert.equal(t.links.confluence, undefined)
   assert.equal(t.links.html, 'bft/documentation/vk-tickets-ticketland-widget/vk-tickets-ticketland-widget.html')
 })
 

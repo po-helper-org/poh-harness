@@ -26,7 +26,7 @@ export const Config = z.object({
   // Пустая строка выключает привязку (см. toBftConfig ниже и BftConfig.sessionPath).
   sessionPath: z.string().default('bft'),
   taskType: z.string().default('bft'),
-  teamName: z.string().default('GDS/Платформа'),
+  teamName: z.string().default('PO team'),
 })
 
 /** Пути приходят строкой профиля, адреса и токены внешних систем — из окружения. */
@@ -58,11 +58,11 @@ export function toBftConfig(plugin: PluginConfig, env: Env): BftConfig {
     teamName: plugin.teamName,
     initiativesSheetUrl: value('BFT_INITIATIVES_SHEET_URL'),
     jira: {
-      baseUrl: value('JIRA_HOST') ?? 'https://jira.mts.ru',
+      baseUrl: value('JIRA_HOST'),
       token: value('JIRA_TOKEN'),
     },
     confluence: {
-      baseUrl: value('CONFLUENCE_HOST') ?? 'https://confluence.mts.ru',
+      baseUrl: value('CONFLUENCE_HOST'),
       token: value('CONFLUENCE_TOKEN'),
     },
   }
