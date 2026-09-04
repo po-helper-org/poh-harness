@@ -1,0 +1,8 @@
+# pnpm v11 читает overrides/build-настройки отсюда, а не из package.json.
+#
+# dangerouslyAllowAllBuilds: устанавливая только официальные @deepseek-ai/*
+# пакеты и их объявленные зависимости через фиксированный пин версии, allow
+# всех build-скриптов здесь безопаснее, чем ручной pnpm approve-builds при
+# каждой машине — установка иначе падает на ERR_PNPM_IGNORED_BUILDS (native
+# аддоны терминала/PTY и т.п. не собираются без approve).
+dangerouslyAllowAllBuilds: true

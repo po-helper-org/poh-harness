@@ -75,6 +75,8 @@ fi
 
 if [ "$CHECK_ONLY" -eq 1 ]; then
   say "Проверяю установленный контур"
+  [ -x "$REPO_ROOT/node_modules/.bin/dsh" ] && ok "dsh CLI установлен" \
+    || doctor_fail "dsh CLI не найден — прогоните ./install.sh"
   [ -d "$DSH_HOME/profiles/$PROFILE_NAME" ] && ok "профиль $PROFILE_NAME сгенерирован" \
     || doctor_fail "профиль $PROFILE_NAME не найден — прогоните ./install.sh"
   [ -d "$DSH_HOME/profiles/$PROFILE_NAME/node_modules" ] && ok "зависимости профиля установлены" \
@@ -136,7 +138,15 @@ SKILL_DIRS_YAML="      - '$REPO_ROOT/skills/poh-bft-writer/skills'
       - '$REPO_ROOT/skills/poh-okr-agent/skills'
       - '$REPO_ROOT/skills/poh-helper/.claude/skills'"
 
-# ── 4. Локальные плагины ──────────────────────────────────────────────────────
+# ── 4. dsh CLI ─────────────────────────────────────────────────────────────────
+# @deepseek-ai/dsh — просто npm-пакет с бинарником `dsh` (см. root package.json),
+# как npx @deepseek-ai/dsh web в апстриме. Устанавливается в корне репозитория,
+# а не в профиле: профиль поставляет только бандлы плагинов (пункт 6 ниже),
+# сам загрузчик резолвится через $PATH из node_modules/.bin.
+say "Ставлю dsh CLI (@deepseek-ai/dsh@$HARNESS_VERSION)"
+(cd "$REPO_ROOT" && pnpm install)
+
+# ── 5. Локальные плагины ──────────────────────────────────────────────────────
 PLUGIN_LIST="dsh-plugin-bft"
 if [ "$WITH_CAVEMAN" -eq 1 ]; then
   PLUGIN_LIST="$PLUGIN_LIST dsh-plugin-caveman"
@@ -152,12 +162,12 @@ else
   echo "  --skip-build: сборку плагинов пропускаю"
 fi
 
-# ── 5. Профиль ────────────────────────────────────────────────────────────────
+# ── 6. Профиль ────────────────────────────────────────────────────────────────
 # Штатная `dsh plugin --profile web add` рапортует успех, но манифест профиля не
 # обновляет (issue #37, см. docs/TROUBLESHOOTING.md) — поэтому профиль пишется
 # напрямую из шаблонов, а харнесс ставится обычной npm-зависимостью в манифесте
 # профиля, без клонирования исходников (`npx @deepseek-ai/dsh web` делает так же).
-say "Настраиваю профиль «$PROFILE_NAME»"
+say "Настраиваю профиль '$PROFILE_NAME'"
 PROFILE_DIR="$DSH_HOME/profiles/$PROFILE_NAME"
 mkdir -p "$PROFILE_DIR"
 
@@ -196,12 +206,13 @@ render_template() {
 
 NEW_PACKAGE_JSON="$(render_template "$REPO_ROOT/profile/package.json.tpl")"
 NEW_CORDIS_PATCH="$(render_template "$REPO_ROOT/profile/cordis.patch.yml.tpl")"
+NEW_PNPM_WORKSPACE="$(render_template "$REPO_ROOT/profile/pnpm-workspace.yaml.tpl")"
 if [ "$WITH_CAVEMAN" -eq 1 ]; then
   NEW_CORDIS_PATCH="$NEW_CORDIS_PATCH
 $(render_template "$REPO_ROOT/profile/caveman-style.cordis.yml.tpl")"
 fi
 
-for pair in "package.json:$NEW_PACKAGE_JSON" "cordis.patch.yml:$NEW_CORDIS_PATCH"; do
+for pair in "package.json:$NEW_PACKAGE_JSON" "cordis.patch.yml:$NEW_CORDIS_PATCH" "pnpm-workspace.yaml:$NEW_PNPM_WORKSPACE"; do
   f="${pair%%:*}"
   content="${pair#*:}"
   if [ -f "$PROFILE_DIR/$f" ] && ! printf '%s\n' "$content" | cmp -s - "$PROFILE_DIR/$f"; then
@@ -213,17 +224,18 @@ done
 
 printf '%s\n' "$NEW_PACKAGE_JSON" > "$PROFILE_DIR/package.json"
 printf '%s\n' "$NEW_CORDIS_PATCH" > "$PROFILE_DIR/cordis.patch.yml"
-echo "  Записано: $PROFILE_DIR/{package.json,cordis.patch.yml}"
+printf '%s\n' "$NEW_PNPM_WORKSPACE" > "$PROFILE_DIR/pnpm-workspace.yaml"
+echo "  Записано: $PROFILE_DIR/{package.json,cordis.patch.yml,pnpm-workspace.yaml}"
 
 say "Ставлю npm-зависимости профиля (харнесс @$HARNESS_VERSION + плагины)"
 (cd "$PROFILE_DIR" && pnpm install)
 
-# ── 6. Автозапуск (опционально) ───────────────────────────────────────────────
+# ── 7. Автозапуск (опционально) ───────────────────────────────────────────────
 # Без явного флага ничего не ставится — ручной запуск через ./scripts/start-web.sh
 # описан в docs/RUNNING.md. Шаблоны юнитов лежат в scripts/ для тех, кто хочет
 # автозапуск при логине: launchd на macOS, systemd --user на Linux.
 
-# ── 7. Готово ─────────────────────────────────────────────────────────────────
+# ── 8. Готово ─────────────────────────────────────────────────────────────────
 cat <<EOF
 
 $(printf '\033[32m✓ Контур установлен\033[0m')
