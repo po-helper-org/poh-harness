@@ -1,117 +1,227 @@
 #!/usr/bin/env bash
-# Установщик контура: поднимает DeepSeek Harness с плагинами и настройками этого
-# репозитория. Идемпотентен — повторный запуск обновляет, а не ломает.
+# Установщик контура: разворачивает DeepSeek Harness (npm) + плагины и скиллы
+# этого репозитория. Идемпотентен — повторный запуск обновляет, а не ломает.
 #
-#   ./install.sh                      # воркспейс спросит интерактивно
-#   ./install.sh --workspace ~/proj/x # без вопросов
-#   ./install.sh --skip-build         # быстрее, если харнесс уже собран
+#   ./install.sh                        # воркспейс спросит интерактивно (Enter — demo)
+#   ./install.sh --workspace ~/proj/x   # без вопросов, свой воркспейс
+#   ./install.sh --with-caveman         # + плагин caveman-style (глобальный стиль ответов)
+#   ./install.sh --skip-build           # быстрее, если плагины уже собраны
+#   ./install.sh --check                # доктор: ничего не меняет, только проверяет
 #
 # Что делает по шагам — см. docs/ONBOARDING.md.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HARNESS_DIR="$REPO_ROOT/harness"
-HARNESS_REPO="https://github.com/deepseek-ai/deepseek-harness.git"
-# Версия, на которой контур собран и проверен. Обновление — отдельным решением:
-# API плагинов у харнесса ещё alpha и меняется между версиями.
-HARNESS_PIN="49a606bc5b5934603f22a26957a07dc799ab0291"
+# Версия харнесса, на которой контур собран и проверен (dist-tag `alpha` на
+# npm). Обновление — отдельным решением: API плагинов у харнесса ещё alpha и
+# меняется между версиями. Один пин на весь набор @deepseek-ai/dsh-* бандлов.
+HARNESS_VERSION="0.1.2-alpha.5"
+SUBSCRIPTIONS_VERSION="^0.6.0"
+RESULT_ONLY_VIEW_VERSION="^1.6.3"
 PROFILE_NAME="web"
+DSH_HOME="$REPO_ROOT/.dsh-data"
 
 WORKSPACE_ROOT=""
 SKIP_BUILD=0
+WITH_CAVEMAN=0
+CHECK_ONLY=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
     --workspace) WORKSPACE_ROOT="${2:-}"; shift 2 ;;
     --skip-build) SKIP_BUILD=1; shift ;;
-    -h|--help) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --with-caveman) WITH_CAVEMAN=1; shift ;;
+    --check) CHECK_ONLY=1; shift ;;
+    -h|--help) sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "Неизвестный аргумент: $1" >&2; exit 2 ;;
   esac
 done
 
 say() { printf '\n\033[1m▸ %s\033[0m\n' "$*"; }
+ok() { printf '  \033[32m✓\033[0m %s\n' "$*"; }
+warn() { printf '  \033[33m⚠\033[0m %s\n' "$*"; }
 die() { printf '\n\033[31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
+DOCTOR_FAIL=0
+doctor_fail() { printf '  \033[31m✗\033[0m %s\n' "$*"; DOCTOR_FAIL=1; }
 
 # ── 1. Проверка окружения ─────────────────────────────────────────────────────
 say "Проверяю окружение"
 
-command -v git >/dev/null || die "нужен git"
-command -v node >/dev/null || die "нужен Node.js 22.19+ или 24+ (https://nodejs.org)"
-command -v pnpm >/dev/null || die "нужен pnpm: corepack enable && corepack prepare pnpm@11.7.0 --activate"
-
-NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
-NODE_MINOR="$(node -p 'process.versions.node.split(".")[1]')"
-if [ "$NODE_MAJOR" -lt 22 ] || { [ "$NODE_MAJOR" -eq 22 ] && [ "$NODE_MINOR" -lt 19 ]; }; then
-  die "Node $(node -v): харнессу нужен ^22.19.0 или >=24"
+if [ "$CHECK_ONLY" -eq 1 ]; then
+  command -v git >/dev/null && ok "git: $(git --version)" || doctor_fail "git не найден"
+  command -v node >/dev/null && ok "node: $(node -v)" || doctor_fail "node не найден"
+  command -v pnpm >/dev/null && ok "pnpm: $(pnpm -v)" || doctor_fail "pnpm не найден"
+else
+  command -v git >/dev/null || die "нужен git"
+  command -v node >/dev/null || die "нужен Node.js 22.19+ или 24+ (https://nodejs.org)"
+  command -v pnpm >/dev/null || die "нужен pnpm: corepack enable && corepack prepare pnpm@11.7.0 --activate"
 fi
-echo "  node $(node -v), pnpm $(pnpm -v)"
 
-if ! command -v backlog >/dev/null; then
-  echo "  ⚠ backlog не найден в PATH — раздел «Управление требованиями» будет пустым."
+if command -v node >/dev/null; then
+  NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
+  NODE_MINOR="$(node -p 'process.versions.node.split(".")[1]')"
+  if [ "$NODE_MAJOR" -lt 22 ] || { [ "$NODE_MAJOR" -eq 22 ] && [ "$NODE_MINOR" -lt 19 ]; }; then
+    if [ "$CHECK_ONLY" -eq 1 ]; then doctor_fail "Node $(node -v): нужен ^22.19.0 или >=24"
+    else die "Node $(node -v): харнессу нужен ^22.19.0 или >=24"; fi
+  fi
+fi
+
+if command -v backlog >/dev/null; then
+  [ "$CHECK_ONLY" -eq 1 ] && ok "backlog: $(backlog --version 2>/dev/null || echo найден)"
+else
+  warn "backlog не найден в PATH — раздел «Управление требованиями» будет пустым."
   echo "    Поставить: npm i -g backlog.md   (https://github.com/MrLesk/Backlog.md)"
 fi
+
+if [ "$CHECK_ONLY" -eq 1 ]; then
+  say "Проверяю установленный контур"
+  [ -d "$DSH_HOME/profiles/$PROFILE_NAME" ] && ok "профиль $PROFILE_NAME сгенерирован" \
+    || doctor_fail "профиль $PROFILE_NAME не найден — прогоните ./install.sh"
+  [ -d "$DSH_HOME/profiles/$PROFILE_NAME/node_modules" ] && ok "зависимости профиля установлены" \
+    || doctor_fail "node_modules профиля отсутствуют — прогоните ./install.sh"
+  [ -d "$REPO_ROOT/plugins/dsh-plugin-bft/lib" ] && ok "dsh-plugin-bft собран" \
+    || doctor_fail "dsh-plugin-bft не собран — прогоните ./install.sh (без --skip-build)"
+  if command -v lsof >/dev/null && lsof -i ":${PORT:-3082}" >/dev/null 2>&1; then
+    ok "порт ${PORT:-3082} слушается — контур, похоже, запущен"
+  else
+    warn "порт ${PORT:-3082} не слушается — контур не запущен (см. ./scripts/start-web.sh)"
+  fi
+  echo
+  if [ "$DOCTOR_FAIL" -eq 0 ]; then
+    printf '\033[32m✓ Всё в порядке\033[0m\n'
+    exit 0
+  else
+    printf '\033[31m✗ Есть проблемы, см. выше\033[0m\n'
+    exit 1
+  fi
+fi
+
+echo "  node $(node -v), pnpm $(pnpm -v)"
 
 # ── 2. Рабочий каталог ────────────────────────────────────────────────────────
 if [ -z "$WORKSPACE_ROOT" ]; then
   say "Рабочий каталог"
   echo "  Это репозиторий, требования которого вы ведёте: внутри лежат backlog/ и bft/."
-  echo "  Не каталог харнесса. Можно указать любой существующий — контур подстроится."
-  printf '  Путь [%s]: ' "$HOME/projects"
+  echo "  Не каталог харнесса. Пустой ввод — демо-воркспейс из этого репозитория"
+  echo "  ($REPO_ROOT/workspace), чтобы сразу увидеть раздел требований на примерах."
+  printf '  Путь [demo]: '
   read -r WORKSPACE_ROOT
-  WORKSPACE_ROOT="${WORKSPACE_ROOT:-$HOME/projects}"
 fi
-WORKSPACE_ROOT="${WORKSPACE_ROOT/#\~/$HOME}"
-[ -d "$WORKSPACE_ROOT" ] || die "каталога нет: $WORKSPACE_ROOT"
-WORKSPACE_ROOT="$(cd "$WORKSPACE_ROOT" && pwd)"
-echo "  Воркспейс: $WORKSPACE_ROOT"
-
-# ── 3. Харнесс на закреплённой версии ─────────────────────────────────────────
-say "DeepSeek Harness (upstream, MIT)"
-if [ ! -d "$HARNESS_DIR/.git" ]; then
-  echo "  Клонирую $HARNESS_REPO"
-  git clone --filter=blob:none "$HARNESS_REPO" "$HARNESS_DIR"
-fi
-git -C "$HARNESS_DIR" fetch --quiet origin "$HARNESS_PIN" 2>/dev/null || git -C "$HARNESS_DIR" fetch --quiet origin
-if [ "$(git -C "$HARNESS_DIR" rev-parse HEAD)" != "$HARNESS_PIN" ]; then
-  git -C "$HARNESS_DIR" checkout --quiet --detach "$HARNESS_PIN"
-fi
-echo "  Версия: $(git -C "$HARNESS_DIR" describe --tags --always)"
-
-# ── 4. Сборка харнесса ────────────────────────────────────────────────────────
-if [ "$SKIP_BUILD" -eq 0 ]; then
-  say "Собираю харнесс (первый раз это долго)"
-  (cd "$HARNESS_DIR" && pnpm install --frozen-lockfile && pnpm build)
+if [ -z "$WORKSPACE_ROOT" ]; then
+  WORKSPACE_ROOT="$REPO_ROOT/workspace"
+  echo "  Воркспейс: $WORKSPACE_ROOT (демо)"
 else
-  echo "  --skip-build: сборку харнесса пропускаю"
+  WORKSPACE_ROOT="${WORKSPACE_ROOT/#\~/$HOME}"
+  [ -d "$WORKSPACE_ROOT" ] || die "каталога нет: $WORKSPACE_ROOT"
+  WORKSPACE_ROOT="$(cd "$WORKSPACE_ROOT" && pwd)"
+  echo "  Воркспейс: $WORKSPACE_ROOT"
 fi
 
-# ── 5. Наш плагин ─────────────────────────────────────────────────────────────
-say "Собираю dsh-plugin-bft"
-(cd "$REPO_ROOT/plugins/dsh-plugin-bft" && pnpm install && pnpm build)
+# ── 3. Скиллы: submodule'ы ────────────────────────────────────────────────────
+say "Скиллы воркспейса (git submodules)"
+if [ -f "$REPO_ROOT/.gitmodules" ]; then
+  git -C "$REPO_ROOT" submodule update --init --recursive
+  ok "skills/poh-bft-writer, skills/poh-okr-agent, skills/poh-helper"
+else
+  warn ".gitmodules не найден — пропускаю (клон без submodule'ов?)"
+fi
 
-# ── 6. Профиль ────────────────────────────────────────────────────────────────
+# Один список customSkillDirs для строки skill-filesystem. Порядок в массиве —
+# это порядок разрешения дублей внутри ранга `custom` (rank 300, первый по
+# порядку побеждает — см. @deepseek-ai/dsh-skill-filesystem +
+# @deepseek-ai/dsh-skill README): poh-bft-writer должен идти РАНЬШЕ poh-helper,
+# иначе его bft-writer/bft-fast/bft-deep-swarm перекроются одноимёнными
+# скиллами из poh-helper.
+SKILL_DIRS_YAML="      - '$REPO_ROOT/skills/poh-bft-writer/skills'
+      - '$REPO_ROOT/skills/poh-okr-agent/skills'
+      - '$REPO_ROOT/skills/poh-helper/.claude/skills'"
+
+# ── 4. Локальные плагины ──────────────────────────────────────────────────────
+PLUGIN_LIST="dsh-plugin-bft"
+if [ "$WITH_CAVEMAN" -eq 1 ]; then
+  PLUGIN_LIST="$PLUGIN_LIST dsh-plugin-caveman"
+fi
+
+if [ "$SKIP_BUILD" -eq 0 ]; then
+  say "Собираю локальные плагины ($PLUGIN_LIST)"
+  for p in $PLUGIN_LIST; do
+    echo "  · $p"
+    (cd "$REPO_ROOT/plugins/$p" && pnpm install && pnpm build)
+  done
+else
+  echo "  --skip-build: сборку плагинов пропускаю"
+fi
+
+# ── 5. Профиль ────────────────────────────────────────────────────────────────
 # Штатная `dsh plugin --profile web add` рапортует успех, но манифест профиля не
 # обновляет (issue #37, см. docs/TROUBLESHOOTING.md) — поэтому профиль пишется
-# напрямую из шаблонов.
+# напрямую из шаблонов, а харнесс ставится обычной npm-зависимостью в манифесте
+# профиля, без клонирования исходников (`npx @deepseek-ai/dsh web` делает так же).
 say "Настраиваю профиль «$PROFILE_NAME»"
-PROFILE_DIR="$HARNESS_DIR/.dsh-data/profiles/$PROFILE_NAME"
+PROFILE_DIR="$DSH_HOME/profiles/$PROFILE_NAME"
 mkdir -p "$PROFILE_DIR"
 
-for f in package.json cordis.patch.yml; do
-  if [ -f "$PROFILE_DIR/$f" ] && ! cmp -s "$PROFILE_DIR/$f" "$PROFILE_DIR/$f.bak" 2>/dev/null; then
-    cp "$PROFILE_DIR/$f" "$PROFILE_DIR/$f.bak"
+BUNDLES_JSON='"@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dsh-plugin-subscriptions", "dsh-plugin-bft", "dsh-result-only-view"'
+PLUGIN_DEPS_JSON='"dsh-plugin-bft": "link:'"$REPO_ROOT"'/plugins/dsh-plugin-bft",
+    "dsh-plugin-subscriptions": "'"$SUBSCRIPTIONS_VERSION"'",
+    "dsh-result-only-view": "'"$RESULT_ONLY_VIEW_VERSION"'"'
+if [ "$WITH_CAVEMAN" -eq 1 ]; then
+  BUNDLES_JSON="$BUNDLES_JSON, \"dsh-plugin-caveman\""
+  PLUGIN_DEPS_JSON="$PLUGIN_DEPS_JSON,
+    \"dsh-plugin-caveman\": \"link:$REPO_ROOT/plugins/dsh-plugin-caveman\""
+fi
+
+# __BUNDLES__/__PLUGIN_DEPS__/__SKILL_DIRS__ can each span several lines — BSD
+# sed rejects a multi-line replacement pattern, so template rendering goes
+# through this small perl substitution instead (env vars survive embedded
+# `|`, `'`, `/` unlike a sed script built by string interpolation).
+render_template() {
+  REPO_ROOT="$REPO_ROOT" HARNESS_VERSION="$HARNESS_VERSION" \
+  WORKSPACE_ROOT="$WORKSPACE_ROOT" BUNDLES_JSON="$BUNDLES_JSON" \
+  PLUGIN_DEPS_JSON="$PLUGIN_DEPS_JSON" SKILL_DIRS_YAML="$SKILL_DIRS_YAML" \
+  perl -pe '
+    BEGIN {
+      $repo = $ENV{REPO_ROOT}; $hv = $ENV{HARNESS_VERSION};
+      $ws = $ENV{WORKSPACE_ROOT}; $bundles = $ENV{BUNDLES_JSON};
+      $deps = $ENV{PLUGIN_DEPS_JSON}; $dirs = $ENV{SKILL_DIRS_YAML};
+    }
+    s/__REPO_ROOT__/$repo/g;
+    s/__HARNESS_VERSION__/$hv/g;
+    s/__WORKSPACE__/$ws/g;
+    s/__BUNDLES__/$bundles/g;
+    s/__PLUGIN_DEPS__/$deps/g;
+    s/__SKILL_DIRS__/$dirs/g;
+  ' "$1"
+}
+
+NEW_PACKAGE_JSON="$(render_template "$REPO_ROOT/profile/package.json.tpl")"
+NEW_CORDIS_PATCH="$(render_template "$REPO_ROOT/profile/cordis.patch.yml.tpl")"
+if [ "$WITH_CAVEMAN" -eq 1 ]; then
+  NEW_CORDIS_PATCH="$NEW_CORDIS_PATCH
+$(render_template "$REPO_ROOT/profile/caveman-style.cordis.yml.tpl")"
+fi
+
+for pair in "package.json:$NEW_PACKAGE_JSON" "cordis.patch.yml:$NEW_CORDIS_PATCH"; do
+  f="${pair%%:*}"
+  content="${pair#*:}"
+  if [ -f "$PROFILE_DIR/$f" ] && ! printf '%s\n' "$content" | cmp -s - "$PROFILE_DIR/$f"; then
+    BAK="$PROFILE_DIR/$f.bak-$(date +%Y%m%d%H%M%S)"
+    cp "$PROFILE_DIR/$f" "$BAK"
+    echo "  Расхождение с прежней версией — бэкап: $BAK"
   fi
 done
 
-sed -e "s|__REPO_ROOT__|$REPO_ROOT|g" \
-    "$REPO_ROOT/profile/package.json.tmpl" > "$PROFILE_DIR/package.json"
-sed -e "s|__WORKSPACE_ROOT__|$WORKSPACE_ROOT|g" \
-    "$REPO_ROOT/profile/cordis.patch.yml.tmpl" > "$PROFILE_DIR/cordis.patch.yml"
+printf '%s\n' "$NEW_PACKAGE_JSON" > "$PROFILE_DIR/package.json"
+printf '%s\n' "$NEW_CORDIS_PATCH" > "$PROFILE_DIR/cordis.patch.yml"
 echo "  Записано: $PROFILE_DIR/{package.json,cordis.patch.yml}"
-echo "  Прежние версии, если были: *.bak рядом"
 
-say "Ставлю плагины профиля"
+say "Ставлю npm-зависимости профиля (харнесс @$HARNESS_VERSION + плагины)"
 (cd "$PROFILE_DIR" && pnpm install)
+
+# ── 6. Автозапуск (опционально) ───────────────────────────────────────────────
+# Без явного флага ничего не ставится — ручной запуск через ./scripts/start-web.sh
+# описан в docs/RUNNING.md. Шаблоны юнитов лежат в scripts/ для тех, кто хочет
+# автозапуск при логине: launchd на macOS, systemd --user на Linux.
 
 # ── 7. Готово ─────────────────────────────────────────────────────────────────
 cat <<EOF
@@ -123,4 +233,6 @@ $(printf '\033[32m✓ Контур установлен\033[0m')
 
 Дальше:      docs/ONBOARDING.md — подключение подписки (шаг 4)
                                   и настройка окружения (шаг 5)
+Проверка:    ./install.sh --check
+Автозапуск:  docs/RUNNING.md — launchd (macOS) / systemd --user (Linux)
 EOF

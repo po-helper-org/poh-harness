@@ -1,11 +1,12 @@
 # Слой патчей профиля `web`: массив записей загрузчика, применяется поверх всех
 # бандлов профиля. Этот файл генерируется из шаблона скриптом install.sh —
-# правьте `profile/cordis.patch.yml.tmpl` в репозитории, а не копию в .dsh-data,
-# иначе следующий прогон install.sh её перезапишет.
+# правьте `profile/cordis.patch.yml.tpl` в репозитории, а не копию в
+# .dsh-data/profiles/web/, иначе следующий прогон install.sh её перезапишет.
 #
-# __WORKSPACE_ROOT__ подставляется установщиком: это корень рабочего каталога,
-# где лежат ваш backlog/ и bft/ — то есть репозиторий, требования которого вы
-# ведёте. Это НЕ каталог самого харнесса.
+# __WORKSPACE__ подставляется установщиком: это корень рабочего каталога, где
+# лежат ваш backlog/ и bft/ — то есть репозиторий, требования которого вы
+# ведёте (по умолчанию — демо-воркспейс этого репозитория, workspace/). Это
+# НЕ каталог самого харнесса — харнесс приезжает npm-зависимостью, без клона.
 
 # ── Backlog.md как нативные инструменты ───────────────────────────────────────
 # https://github.com/MrLesk/Backlog.md через общий MCP-мост. Требует, чтобы
@@ -18,7 +19,7 @@
         transport: stdio
         command: backlog
         args: ['mcp', 'start']
-        cwd: '__WORKSPACE_ROOT__'
+        cwd: '__WORKSPACE__'
         env: {}
 
 # ── Context7 как нативные инструменты ─────────────────────────────────────────
@@ -33,17 +34,26 @@
         url: 'https://mcp.context7.com/mcp'
         headers: {}
 
-# ── Скиллы воркспейса как нативный skill-root ─────────────────────────────────
+# ── Скиллы как нативный skill-root ────────────────────────────────────────────
 # Профиль dsh-web-app по умолчанию выключает и skill-filesystem, и tool-skill
 # (проверяется через `dsh --profile web --dump-config`). Без явного включения
 # обоих customSkillDirs задан, но мёртв, а самого инструмента `skill` у модели
 # просто нет.
+#
+# Список ниже собирает install.sh из корней submodule'ов skills/ (см. §5
+# дизайна репозитория) плюс воркспейс. Порядок элементов — это порядок
+# разрешения дублей внутри ранга `custom` (все элементы массива делят один
+# rank 300; первый по порядку побеждает — см. README пакетов
+# @deepseek-ai/dsh-skill-filesystem и @deepseek-ai/dsh-skill): poh-bft-writer
+# идёт раньше poh-helper, поэтому его bft-writer/bft-fast/bft-deep-swarm не
+# перекрываются одноимёнными скиллами из poh-helper.
 - id: skill-filesystem
   name: '@deepseek-ai/dsh-skill-filesystem'
   disabled: false
   config:
     customSkillDirs:
-      - '__WORKSPACE_ROOT__/.claude/skills'
+__SKILL_DIRS__
+      - '__WORKSPACE__/.claude/skills'
 - id: tool-skill
   name: '@deepseek-ai/dsh-tool-skill'
   disabled: false
@@ -54,4 +64,4 @@
 # workspaceRoot — он свой на каждой машине, поэтому в пакет не зашит.
 - id: bft-requirements
   config:
-    workspaceRoot: '__WORKSPACE_ROOT__'
+    workspaceRoot: '__WORKSPACE__'
