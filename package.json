@@ -5,10 +5,26 @@
   "description": "Caveman compressed response style as a global DSH system-prompt section",
   "license": "MIT",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
     "./package.json": "./package.json"
+  },
+  "files": [
+    "lib"
+  ],
+  "scripts": {
+    "build": "tsc"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.2",
+    "@deepseek-ai/dsh-system-prompt": "0.1.2-alpha.5",
+    "@deepseek-ai/schemastery": "^3.18.2",
+    "typescript": "^5.7.2"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",

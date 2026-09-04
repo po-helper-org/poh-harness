@@ -27,7 +27,7 @@ Order `10` places the style right after the persona (`0`) and before
 ```yaml
 - insert:
     - id: caveman-style
-      name: '/абсолютный/путь/dsh-plugin-caveman/src/index.ts'
+      name: 'dsh-plugin-caveman'   # or an absolute path to lib/index.js
       config:
         level: ultra
         preserveCodeStyle: true
@@ -39,9 +39,10 @@ Order `10` places the style right after the persona (`0`) and before
 | `preserveCodeStyle` | `true` | Keep code, commits, PR descriptions, security warnings, destructive-action confirmations, and multi-step instructions in normal prose |
 | `order` | `10` | System-prompt section sort order |
 
-The plugin loads straight from TypeScript source: the harness runs under
-`node --import tsx/esm`, and the loader resolves absolute paths in `insert`
-rows. No build step.
+`pnpm build` compiles `src/` to `lib/` (plain `tsc`, no bundler needed for a
+single Cordis plugin file); the loader resolves either the package name (a
+`link:` dependency in the profile manifest) or an absolute path to
+`lib/index.js`.
 
 ## Runtime control
 
