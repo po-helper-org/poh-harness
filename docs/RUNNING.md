@@ -64,8 +64,7 @@ systemctl --user disable --now poh-harness.service  # стоп
 | `plugins/dsh-plugin-caveman/` | Опциональный стиль ответов (`--with-caveman`). |
 | `skills/` | Submodule'ы скиллов po-helper-org (`poh-bft-writer`, `poh-okr-agent`, `poh-helper`). |
 | `workspace/` | Демо-воркспейс по умолчанию (задачи БФТ, документы, минимальный GROUND). |
-| `profile/*.tpl` | Источник истины по профилю. Правьте здесь, а не в `.dsh-data`. |
-| `config/*.cordis.yml` | Референсные конфиги подключений с обоснованиями (перенесены в `profile/cordis.patch.yml.tpl`). |
+| `profile/*.tpl` | Источник истины по профилю — обоснование каждой строки (Backlog.md, Context7, скиллы, БФТ-плагин) прямо в комментариях шаблона. Правьте здесь, а не в `.dsh-data`. |
 
 ## Что после чего перезапускать
 
