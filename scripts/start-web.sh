@@ -10,18 +10,17 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-HARNESS_DIR="$REPO_ROOT/harness"
 PORT="${PORT:-3082}"
 
-[ -d "$HARNESS_DIR" ] || {
-  echo "Харнесс не установлен — сначала ./install.sh" >&2
+[ -x "$REPO_ROOT/node_modules/.bin/dsh" ] || {
+  echo "Контур не установлен — сначала ./install.sh" >&2
   exit 1
 }
 
 # Данные (сессии, логины, профили) живут внутри репозитория, а не в глобальном
 # ~/.dsh — контур ничего не подмешивает в вашу личную установку харнесса и не
 # зависит от неё. Каталог в .gitignore: там же лежат учётные данные подписки.
-export DSH_HOME="$HARNESS_DIR/.dsh-data"
+export DSH_HOME="$REPO_ROOT/.dsh-data"
 
-cd "$HARNESS_DIR"
-exec pnpm dsh web --no-open --port "$PORT"
+cd "$REPO_ROOT"
+exec node_modules/.bin/dsh web --no-open --port "$PORT"
