@@ -32,7 +32,7 @@ test('./ и обратные слэши нормализуются', () => {
 })
 
 test('ссылки вне каталога документов не подхватываются', () => {
-  assert.equal(normalizeDocsRef('https://confluence.mts.ru/x', DOCS), null)
+  assert.equal(normalizeDocsRef('https://confluence.example.com/x', DOCS), null)
   assert.equal(normalizeDocsRef('okr:strategy-2026q3', DOCS), null)
   assert.equal(normalizeDocsRef('docs/readme.html', DOCS), null)
   assert.equal(normalizeDocsRef('', DOCS), null)
@@ -54,14 +54,14 @@ test('сам каталог документов без файла — не сс
 test('slug эпика берётся из любой ссылки внутрь папки, включая .md', () => {
   // У PO-22 в references только .md — HTML не зарегистрирован вовсе.
   const refs = [
-    'https://jira.mts.ru/browse/GDSLV-1',
+    'https://jira.example.com/browse/PROJ-1',
     'ishmanov-cortex/bft/documentation/vibe-kino-user-data/artefacts/validation.md',
   ]
   assert.equal(epicSlugFromRefs(refs, DOCS), 'vibe-kino-user-data')
 })
 
 test('без ссылок в каталог документов slug не выдумывается', () => {
-  assert.equal(epicSlugFromRefs(['https://confluence.mts.ru/x'], DOCS), null)
+  assert.equal(epicSlugFromRefs(['https://confluence.example.com/x'], DOCS), null)
 })
 
 test('канонический html предпочитается прочим артефактам', () => {
