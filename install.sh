@@ -130,7 +130,6 @@ say "Скиллы и внешние плагины (git submodules)"
 if [ -f "$REPO_ROOT/.gitmodules" ]; then
   git -C "$REPO_ROOT" submodule update --init --recursive
   ok "skills/poh-bft-writer, skills/poh-okr-agent, skills/poh-helper"
-  ok "plugins/dsh-focus-mode-plugin"
 else
   warn ".gitmodules не найден — пропускаю (клон без submodule'ов?)"
 fi
@@ -141,6 +140,7 @@ fi
 WITH_FOCUS=0
 if [ -f "$REPO_ROOT/plugins/dsh-focus-mode-plugin/package.json" ]; then
   WITH_FOCUS=1
+  ok "plugins/dsh-focus-mode-plugin"
 else
   warn "plugins/dsh-focus-mode-plugin пуст — режим фокуса пропускаю."
   echo "    Выкачать: git submodule update --init plugins/dsh-focus-mode-plugin"
