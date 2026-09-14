@@ -7,3 +7,6 @@
 [submodule "skills/poh-helper"]
 	path = skills/poh-helper
 	url = https://github.com/po-helper-org/poh-helper.git
+[submodule "plugins/dsh-focus-mode-plugin"]
+	path = plugins/dsh-focus-mode-plugin
+	url = https://github.com/po-helper-org/poh-focus-mode-plugin.git
