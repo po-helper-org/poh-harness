@@ -62,6 +62,7 @@ systemctl --user disable --now poh-harness.service  # стоп
 | `.dsh-data/profiles/web/` | Манифест профиля и слои патчей — генерируются установщиком из `profile/*.tpl`. |
 | `plugins/dsh-plugin-bft/` | Исходники раздела «Управление требованиями» (git subtree из ishmanov-cortex). |
 | `plugins/dsh-plugin-caveman/` | Опциональный стиль ответов (`--with-caveman`). |
+| `plugins/dsh-focus-mode-plugin/` | Режим фокуса — submodule `po-helper-org/poh-focus-mode-plugin`. Журнал сессий лежит не здесь, а в воркспейсе: `<воркспейс>/.focus/journal.jsonl`. |
 | `skills/` | Submodule'ы скиллов po-helper-org (`poh-bft-writer`, `poh-okr-agent`, `poh-helper`). |
 | `workspace/` | Демо-воркспейс по умолчанию (задачи БФТ, документы, минимальный GROUND). |
 | `profile/*.tpl` | Источник истины по профилю — обоснование каждой строки (Backlog.md, Context7, скиллы, БФТ-плагин) прямо в комментариях шаблона. Правьте здесь, а не в `.dsh-data`. |
@@ -70,10 +71,11 @@ systemctl --user disable --now poh-harness.service  # стоп
 
 | Изменили | Что сделать |
 |---|---|
-| Код плагина (`plugins/dsh-plugin-bft/src/`) | `pnpm build` в каталоге плагина + перезагрузить страницу |
+| Код плагина (`plugins/dsh-plugin-bft/src/`, `plugins/dsh-focus-mode-plugin/src/`) | `pnpm build` в каталоге плагина + перезагрузить страницу |
 | `profile/*.tpl` | `./install.sh --skip-build` + рестарт харнесса |
 | Состав плагинов профиля | `./install.sh --skip-build` + рестарт харнесса |
 | Скиллы в submodule'ах (`skills/*`) | `git submodule update --remote` + рестарт харнесса |
+| Версия режима фокуса (`plugins/dsh-focus-mode-plugin`) | `git submodule update --remote plugins/dsh-focus-mode-plugin` + `pnpm build` в нём + рестарт харнесса |
 | Скиллы в воркспейсе (`<воркспейс>/.claude/skills`) | Рестарт харнесса |
 
 Правки в `.dsh-data/profiles/web/` руками переживут рестарт, но **не переживут

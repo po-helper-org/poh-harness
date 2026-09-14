@@ -83,6 +83,12 @@ if [ "$CHECK_ONLY" -eq 1 ]; then
     || doctor_fail "node_modules профиля отсутствуют — прогоните ./install.sh"
   [ -d "$REPO_ROOT/plugins/dsh-plugin-bft/lib" ] && ok "dsh-plugin-bft собран" \
     || doctor_fail "dsh-plugin-bft не собран — прогоните ./install.sh (без --skip-build)"
+  if [ -f "$REPO_ROOT/plugins/dsh-focus-mode-plugin/package.json" ]; then
+    [ -d "$REPO_ROOT/plugins/dsh-focus-mode-plugin/lib" ] && ok "dsh-focus-mode-plugin собран" \
+      || doctor_fail "dsh-focus-mode-plugin не собран — прогоните ./install.sh (без --skip-build)"
+  else
+    warn "plugins/dsh-focus-mode-plugin пуст — подмодуль не выкачан, режим фокуса выключен"
+  fi
   if command -v lsof >/dev/null && lsof -i ":${PORT:-3082}" >/dev/null 2>&1; then
     ok "порт ${PORT:-3082} слушается — контур, похоже, запущен"
   else
@@ -120,12 +126,24 @@ else
 fi
 
 # ── 3. Скиллы: submodule'ы ────────────────────────────────────────────────────
-say "Скиллы воркспейса (git submodules)"
+say "Скиллы и внешние плагины (git submodules)"
 if [ -f "$REPO_ROOT/.gitmodules" ]; then
   git -C "$REPO_ROOT" submodule update --init --recursive
   ok "skills/poh-bft-writer, skills/poh-okr-agent, skills/poh-helper"
+  ok "plugins/dsh-focus-mode-plugin"
 else
   warn ".gitmodules не найден — пропускаю (клон без submodule'ов?)"
+fi
+
+# Режим фокуса приезжает подмодулем: клон без --recurse-submodules оставляет каталог
+# пустым. Тогда его тихо пропускаем — контур поднимется без режима фокуса, а не
+# упадёт на сборке пустого каталога.
+WITH_FOCUS=0
+if [ -f "$REPO_ROOT/plugins/dsh-focus-mode-plugin/package.json" ]; then
+  WITH_FOCUS=1
+else
+  warn "plugins/dsh-focus-mode-plugin пуст — режим фокуса пропускаю."
+  echo "    Выкачать: git submodule update --init plugins/dsh-focus-mode-plugin"
 fi
 
 # Один список customSkillDirs для строки skill-filesystem. Порядок в массиве —
@@ -148,6 +166,9 @@ say "Ставлю dsh CLI (@deepseek-ai/dsh@$HARNESS_VERSION)"
 
 # ── 5. Локальные плагины ──────────────────────────────────────────────────────
 PLUGIN_LIST="dsh-plugin-bft"
+if [ "$WITH_FOCUS" -eq 1 ]; then
+  PLUGIN_LIST="$PLUGIN_LIST dsh-focus-mode-plugin"
+fi
 if [ "$WITH_CAVEMAN" -eq 1 ]; then
   PLUGIN_LIST="$PLUGIN_LIST dsh-plugin-caveman"
 fi
@@ -175,6 +196,11 @@ BUNDLES_JSON='"@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dsh-plugin-s
 PLUGIN_DEPS_JSON='"dsh-plugin-bft": "link:'"$REPO_ROOT"'/plugins/dsh-plugin-bft",
     "dsh-plugin-subscriptions": "'"$SUBSCRIPTIONS_VERSION"'",
     "dsh-result-only-view": "'"$RESULT_ONLY_VIEW_VERSION"'"'
+if [ "$WITH_FOCUS" -eq 1 ]; then
+  BUNDLES_JSON="$BUNDLES_JSON, \"dsh-focus-mode-plugin\""
+  PLUGIN_DEPS_JSON="$PLUGIN_DEPS_JSON,
+    \"dsh-focus-mode-plugin\": \"link:$REPO_ROOT/plugins/dsh-focus-mode-plugin\""
+fi
 if [ "$WITH_CAVEMAN" -eq 1 ]; then
   BUNDLES_JSON="$BUNDLES_JSON, \"dsh-plugin-caveman\""
   PLUGIN_DEPS_JSON="$PLUGIN_DEPS_JSON,
@@ -207,6 +233,10 @@ render_template() {
 NEW_PACKAGE_JSON="$(render_template "$REPO_ROOT/profile/package.json.tpl")"
 NEW_CORDIS_PATCH="$(render_template "$REPO_ROOT/profile/cordis.patch.yml.tpl")"
 NEW_PNPM_WORKSPACE="$(render_template "$REPO_ROOT/profile/pnpm-workspace.yaml.tpl")"
+if [ "$WITH_FOCUS" -eq 1 ]; then
+  NEW_CORDIS_PATCH="$NEW_CORDIS_PATCH
+$(render_template "$REPO_ROOT/profile/focus-mode.cordis.yml.tpl")"
+fi
 if [ "$WITH_CAVEMAN" -eq 1 ]; then
   NEW_CORDIS_PATCH="$NEW_CORDIS_PATCH
 $(render_template "$REPO_ROOT/profile/caveman-style.cordis.yml.tpl")"
