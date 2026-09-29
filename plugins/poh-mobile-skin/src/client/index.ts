@@ -440,6 +440,18 @@ ${BURGER_ATTR_SELECTOR}, ${SETTINGS_BAR_SELECTOR} {
     order: 3;
   }
 
+  /* 1d. Панель «Plugins» (ui-plugin-manager, id 'plugins') в мобильном меню
+         не нужна. Своего класса у строки нет — узнаём по подписи во всех
+         локалях пакета; другие панели (напр. «Automation tasks») остаются.
+         Опустевший список панелей прячем целиком, чтобы не оставлять отступ. */
+  .hHd-Xa_panelRow[aria-label='Plugins'],
+  .hHd-Xa_panelRow[aria-label='插件'] {
+    display: none !important;
+  }
+  .hHd-Xa_panelList:not(:has(.hHd-Xa_panelRow:not([aria-label='Plugins']):not([aria-label='插件']))) {
+    display: none !important;
+  }
+
   /* scrim на центре при открытом drawer (управляется с body, без :has()). */
   body[data-poh-drawer='open'] .pI_x6G_centerCol::after {
     content: '';

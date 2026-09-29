@@ -38,6 +38,10 @@
       <div class="hHd-Xa_root hHd-Xa_collapsed" id="sidebarRoot">
         <button class="hHd-Xa_iconButton hHd-Xa_toggle" id="nativeToggle" type="button" aria-label="toggle">⟷</button>
         <button class="hHd-Xa_newSession" id="newSession" type="button">＋ <span class="hHd-Xa_newSessionLabel">Новая сессия</span></button>
+        <nav class="hHd-Xa_panelList" id="panelList" aria-label="panels">
+          <button type="button" class="hHd-Xa_panelRow" aria-label="Plugins" id="panelPlugins"><span class="hHd-Xa_panelGlyph">✣</span><span class="hHd-Xa_panelTitle hHd-Xa_wide">Plugins</span></button>
+          <button type="button" class="hHd-Xa_panelRow" aria-label="Automation tasks" id="panelSchedule"><span class="hHd-Xa_panelGlyph">⏱</span><span class="hHd-Xa_panelTitle hHd-Xa_wide">Automation tasks</span></button>
+        </nav>
         <div class="hHd-Xa_regionArea" id="sessions">
           <div class="bhn1Oq_sectionHeader">Workspaces <button type="button" id="wsSearch">🔍</button></div>
           <div role="treeitem" aria-expanded="true" id="wsGroup">▾ demo-workspace</div>
@@ -198,6 +202,10 @@ window.runTests = async function () {
   check('бургер раскрывает сайдбар dsh (нативный toggle)', !frame.hasAttribute('data-sidebar-collapsed') && nativeToggleClicks === 1)
   check('drawer выехал (data-open, x=0)', $('.pI_x6G_sidebarCol').getAttribute('data-open') === 'true' && Math.abs(rect($('.pI_x6G_sidebarCol')).left) < 1)
   const fa = rect($('.hHd-Xa_footerActions')), ra = rect($('.hHd-Xa_regionArea')), sa = rect($('.hHd-Xa_settingsArea'))
+  check('панель «Plugins» скрыта в меню', !vis($('#panelPlugins')))
+  check('другие панели (Automation tasks) остаются', vis($('#panelSchedule')))
+  $('#panelSchedule').remove(); await tick()
+  check('список только из «Plugins» скрыт целиком', !vis($('#panelList')))
   check('порядок: плагины → чаты → настройки', fa.top < ra.top && ra.top < sa.top, `plugins=${fa.top|0} chats=${ra.top|0} settings=${sa.top|0}`)
   $('#wsGroup').click(); await tick()
   check('раскрытие группы (aria-expanded) не закрывает drawer', !frame.hasAttribute('data-sidebar-collapsed'))
