@@ -15,9 +15,10 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Версия харнесса, на которой контур собран и проверен (dist-tag `alpha` на
 # npm). Обновление — отдельным решением: API плагинов у харнесса ещё alpha и
 # меняется между версиями. Один пин на весь набор @deepseek-ai/dsh-* бандлов.
-HARNESS_VERSION="0.1.2-alpha.5"
-SUBSCRIPTIONS_VERSION="^0.6.0"
-RESULT_ONLY_VIEW_VERSION="^1.6.3"
+HARNESS_VERSION="0.1.7-rc.2"
+SUBSCRIPTIONS_VERSION="^0.9.6"
+RESULT_ONLY_VIEW_VERSION="^1.6.4"
+LLM_PI_AI_VERSION="0.1.7-rc.2"
 PROFILE_NAME="web"
 DSH_HOME="$REPO_ROOT/.dsh-data"
 
@@ -123,7 +124,7 @@ fi
 say "Скиллы воркспейса (git submodules)"
 if [ -f "$REPO_ROOT/.gitmodules" ]; then
   git -C "$REPO_ROOT" submodule update --init --recursive
-  ok "skills/poh-bft-writer, skills/poh-okr-agent, skills/poh-helper"
+  ok "skills/poh-bft-writer, skills/poh-okr-agent, skills/poh-sprint-agents, skills/poh-helper"
 else
   warn ".gitmodules не найден — пропускаю (клон без submodule'ов?)"
 fi
@@ -133,9 +134,11 @@ fi
 # порядку побеждает — см. @deepseek-ai/dsh-skill-filesystem +
 # @deepseek-ai/dsh-skill README): poh-bft-writer должен идти РАНЬШЕ poh-helper,
 # иначе его bft-writer/bft-fast/bft-deep-swarm перекроются одноимёнными
-# скиллами из poh-helper.
+# скиллами из poh-helper. poh-sprint-agents — РАНЬШЕ poh-helper по той же
+# причине: его новый sprint-planner должен перекрыть архивный из poh-helper.
 SKILL_DIRS_YAML="      - '$REPO_ROOT/skills/poh-bft-writer/skills'
       - '$REPO_ROOT/skills/poh-okr-agent/skills'
+      - '$REPO_ROOT/skills/poh-sprint-agents/.claude/skills'
       - '$REPO_ROOT/skills/poh-helper/.claude/skills'"
 
 # ── 4. dsh CLI ─────────────────────────────────────────────────────────────────
@@ -147,7 +150,8 @@ say "Ставлю dsh CLI (@deepseek-ai/dsh@$HARNESS_VERSION)"
 (cd "$REPO_ROOT" && pnpm install)
 
 # ── 5. Локальные плагины ──────────────────────────────────────────────────────
-PLUGIN_LIST="dsh-plugin-bft"
+PLUGIN_LIST="dsh-plugin-bft poh-mobile-skin"
+VENDOR_PLUGINS="poh-morning-plugin dsh-communication-plugin"
 if [ "$WITH_CAVEMAN" -eq 1 ]; then
   PLUGIN_LIST="$PLUGIN_LIST dsh-plugin-caveman"
 fi
@@ -157,6 +161,16 @@ if [ "$SKIP_BUILD" -eq 0 ]; then
   for p in $PLUGIN_LIST; do
     echo "  · $p"
     (cd "$REPO_ROOT/plugins/$p" && pnpm install && pnpm build)
+  done
+  say "Собираю vendor-плагины ($VENDOR_PLUGINS)"
+  for p in $VENDOR_PLUGINS; do
+    echo "  · $p"
+    case "$p" in
+      poh-morning-plugin)      d="$REPO_ROOT/vendor/poh-morning-status/poh-morning-plugin" ;;
+      dsh-communication-plugin) d="$REPO_ROOT/vendor/dsh-communication-plugin" ;;
+      *) die "неизвестный vendor-плагин: $p" ;;
+    esac
+    (cd "$d" && pnpm install && pnpm build)
   done
 else
   echo "  --skip-build: сборку плагинов пропускаю"
@@ -171,10 +185,14 @@ say "Настраиваю профиль '$PROFILE_NAME'"
 PROFILE_DIR="$DSH_HOME/profiles/$PROFILE_NAME"
 mkdir -p "$PROFILE_DIR"
 
-BUNDLES_JSON='"@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dsh-plugin-subscriptions", "dsh-plugin-bft", "dsh-result-only-view"'
+BUNDLES_JSON='"@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dsh-plugin-subscriptions", "dsh-plugin-bft", "dsh-result-only-view", "poh-morning-plugin", "dsh-communication-plugin", "poh-mobile-skin"'
 PLUGIN_DEPS_JSON='"dsh-plugin-bft": "link:'"$REPO_ROOT"'/plugins/dsh-plugin-bft",
     "dsh-plugin-subscriptions": "'"$SUBSCRIPTIONS_VERSION"'",
-    "dsh-result-only-view": "'"$RESULT_ONLY_VIEW_VERSION"'"'
+    "dsh-result-only-view": "'"$RESULT_ONLY_VIEW_VERSION"'",
+    "@deepseek-ai/dsh-llm-pi-ai": "'"$LLM_PI_AI_VERSION"'",
+    "poh-morning-plugin": "link:'"$REPO_ROOT"'/vendor/poh-morning-status/poh-morning-plugin",
+    "dsh-communication-plugin": "link:'"$REPO_ROOT"'/vendor/dsh-communication-plugin",
+    "poh-mobile-skin": "link:'"$REPO_ROOT"'/plugins/poh-mobile-skin"'
 if [ "$WITH_CAVEMAN" -eq 1 ]; then
   BUNDLES_JSON="$BUNDLES_JSON, \"dsh-plugin-caveman\""
   PLUGIN_DEPS_JSON="$PLUGIN_DEPS_JSON,
@@ -228,6 +246,12 @@ printf '%s\n' "$NEW_PNPM_WORKSPACE" > "$PROFILE_DIR/pnpm-workspace.yaml"
 echo "  Записано: $PROFILE_DIR/{package.json,cordis.patch.yml,pnpm-workspace.yaml}"
 
 say "Ставлю npm-зависимости профиля (харнесс @$HARNESS_VERSION + плагины)"
+# Патчи pnpm (patchedDependencies из pnpm-workspace.yaml.tpl) живут в репо,
+# а применяются относительно каталога профиля — копируем их туда.
+if [ -d "$REPO_ROOT/profile/patches" ]; then
+  mkdir -p "$PROFILE_DIR/patches"
+  cp "$REPO_ROOT/profile/patches/"*.patch "$PROFILE_DIR/patches/" 2>/dev/null || true
+fi
 (cd "$PROFILE_DIR" && pnpm install)
 
 # ── 7. Автозапуск (опционально) ───────────────────────────────────────────────
