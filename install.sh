@@ -69,8 +69,14 @@ fi
 
 if command -v backlog >/dev/null; then
   [ "$CHECK_ONLY" -eq 1 ] && ok "backlog: $(backlog --version 2>/dev/null || echo найден)"
+  # «Управление целями» (poh-okr-plugin) держится на сроках задач/объективов —
+  # они появились в Backlog.md 1.51.0; на версии старше раздел откажется работать.
+  BACKLOG_VER="$(backlog --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)"
+  if [ -n "$BACKLOG_VER" ] && [ "$(printf '%s\n1.51\n' "$BACKLOG_VER" | sort -V | head -1)" != "1.51" ]; then
+    warn "backlog $BACKLOG_VER: разделу «Управление целями» нужен 1.51.0+ — npm i -g backlog.md@latest"
+  fi
 else
-  warn "backlog не найден в PATH — раздел «Управление требованиями» будет пустым."
+  warn "backlog не найден в PATH — разделы «Управление требованиями» и «Управление целями» будут пустыми."
   echo "    Поставить: npm i -g backlog.md   (https://github.com/MrLesk/Backlog.md)"
 fi
 
@@ -157,7 +163,7 @@ say "Ставлю dsh CLI (@deepseek-ai/dsh@$HARNESS_VERSION)"
 
 # ── 5. Локальные плагины ──────────────────────────────────────────────────────
 PLUGIN_LIST="dsh-plugin-bft poh-mobile-skin"
-VENDOR_PLUGINS="poh-morning-plugin dsh-communication-plugin"
+VENDOR_PLUGINS="poh-morning-plugin dsh-communication-plugin poh-okr-plugin"
 if [ "$WITH_CAVEMAN" -eq 1 ]; then
   PLUGIN_LIST="$PLUGIN_LIST dsh-plugin-caveman"
 fi
@@ -174,6 +180,7 @@ if [ "$SKIP_BUILD" -eq 0 ]; then
     case "$p" in
       poh-morning-plugin)      d="$REPO_ROOT/vendor/poh-morning-status/poh-morning-plugin" ;;
       dsh-communication-plugin) d="$REPO_ROOT/vendor/dsh-communication-plugin" ;;
+      poh-okr-plugin)          d="$REPO_ROOT/vendor/poh-okr-plugin" ;;
       *) die "неизвестный vendor-плагин: $p" ;;
     esac
     (cd "$d" && pnpm install && pnpm build)
@@ -191,13 +198,14 @@ say "Настраиваю профиль '$PROFILE_NAME'"
 PROFILE_DIR="$DSH_HOME/profiles/$PROFILE_NAME"
 mkdir -p "$PROFILE_DIR"
 
-BUNDLES_JSON='"@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dsh-plugin-subscriptions", "dsh-plugin-bft", "dsh-result-only-view", "poh-morning-plugin", "dsh-communication-plugin", "poh-mobile-skin"'
+BUNDLES_JSON='"@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dsh-plugin-subscriptions", "dsh-plugin-bft", "dsh-result-only-view", "poh-morning-plugin", "dsh-communication-plugin", "poh-okr-plugin", "poh-mobile-skin"'
 PLUGIN_DEPS_JSON='"dsh-plugin-bft": "link:'"$REPO_ROOT"'/plugins/dsh-plugin-bft",
     "dsh-plugin-subscriptions": "'"$SUBSCRIPTIONS_VERSION"'",
     "dsh-result-only-view": "'"$RESULT_ONLY_VIEW_VERSION"'",
     "@deepseek-ai/dsh-llm-pi-ai": "'"$LLM_PI_AI_VERSION"'",
     "poh-morning-plugin": "link:'"$REPO_ROOT"'/vendor/poh-morning-status/poh-morning-plugin",
     "dsh-communication-plugin": "link:'"$REPO_ROOT"'/vendor/dsh-communication-plugin",
+    "poh-okr-plugin": "link:'"$REPO_ROOT"'/vendor/poh-okr-plugin",
     "poh-mobile-skin": "link:'"$REPO_ROOT"'/plugins/poh-mobile-skin"'
 if [ "$WITH_CAVEMAN" -eq 1 ]; then
   BUNDLES_JSON="$BUNDLES_JSON, \"dsh-plugin-caveman\""

@@ -16,3 +16,6 @@
 [submodule "skills/poh-sprint-agents"]
 	path = skills/poh-sprint-agents
 	url = https://github.com/po-helper-org/poh-sprint-agents.git
+[submodule "vendor/poh-okr-plugin"]
+	path = vendor/poh-okr-plugin
+	url = https://github.com/po-helper-org/poh-okr-plugin.git
