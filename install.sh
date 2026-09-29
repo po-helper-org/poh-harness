@@ -120,6 +120,12 @@ else
   echo "  Воркспейс: $WORKSPACE_ROOT"
 fi
 
+# Защита от утечек: pre-commit хук scripts/check-leaks.sh (репозиторий публичный,
+# а воркспейс PO рядом с рабочими данными). Идемпотентно.
+if [ "$CHECK_ONLY" -eq 0 ] && git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+  git -C "$REPO_ROOT" config core.hooksPath .githooks
+fi
+
 # ── 3. Скиллы: submodule'ы ────────────────────────────────────────────────────
 say "Скиллы воркспейса (git submodules)"
 if [ -f "$REPO_ROOT/.gitmodules" ]; then
