@@ -30,7 +30,10 @@ PATTERNS=(
   'AKIA[0-9A-Z]{16}'                             # AWS
   '-----BEGIN [A-Z ]*PRIVATE KEY-----'
   'eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.'  # JWT
-  '(api[_-]?key|token|secret|passw(or)?d)["'"'"' ]*[:=][ "'"'"']*[A-Za-z0-9_/+=-]{16,}'
+  # ключ = значение: строка в кавычках или длинный «шум» без _ и скобок
+  # (так не ловится присваивание вида token = read_token_from_journal())
+  '(api[_-]?key|token|secret|passw(or)?d)["'"'"' ]*[:=][ ]*["'"'"'][A-Za-z0-9_/+=.-]{16,}'
+  '(api[_-]?key|token|secret|passw(or)?d)["'"'"' ]*[:=][ ]*[A-Za-z0-9/+=-]{16,}'
   '[?&]token=[A-Za-z0-9_-]{8,}'                  # launch-токен dsh в ссылке
   '([a-z0-9-]+\.)*mts\.ru'                       # корпоративные хосты
   'customfield_[0-9]{4,}'                        # id полей конкретного Jira
