@@ -1,7 +1,7 @@
 ---
 id: DEMO-4
 title: 'БФТ: Групповые скидки для корпоративных клиентов'
-status: Cancelled
+status: BFT-CANCELED
 assignee: []
 created_date: '2026-09-04 16:17'
 updated_date: '2026-09-04 16:17'

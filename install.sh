@@ -81,8 +81,8 @@ if [ "$CHECK_ONLY" -eq 1 ]; then
     || doctor_fail "профиль $PROFILE_NAME не найден — прогоните ./install.sh"
   [ -d "$DSH_HOME/profiles/$PROFILE_NAME/node_modules" ] && ok "зависимости профиля установлены" \
     || doctor_fail "node_modules профиля отсутствуют — прогоните ./install.sh"
-  [ -d "$REPO_ROOT/plugins/dsh-plugin-bft/lib" ] && ok "dsh-plugin-bft собран" \
-    || doctor_fail "dsh-plugin-bft не собран — прогоните ./install.sh (без --skip-build)"
+  [ -d "$REPO_ROOT/skills/poh-bft-writer/plugin/lib" ] && ok "poh-bft-plugin собран" \
+    || doctor_fail "poh-bft-plugin не собран — прогоните ./install.sh (без --skip-build)"
   if command -v lsof >/dev/null && lsof -i ":${PORT:-3082}" >/dev/null 2>&1; then
     ok "порт ${PORT:-3082} слушается — контур, похоже, запущен"
   else
@@ -147,13 +147,19 @@ say "Ставлю dsh CLI (@deepseek-ai/dsh@$HARNESS_VERSION)"
 (cd "$REPO_ROOT" && pnpm install)
 
 # ── 5. Локальные плагины ──────────────────────────────────────────────────────
-PLUGIN_LIST="dsh-plugin-bft"
+# Раздел «Управление требованиями» — poh-bft-plugin из submodule poh-bft-writer
+# (plugin/ рядом с навыками /bft-*): одна версия навыков и раздела, обновляются
+# вместе. Собирается отдельно от plugins/*, потому что лежит не там.
+BFT_PLUGIN_DIR="$REPO_ROOT/skills/poh-bft-writer/plugin"
+PLUGIN_LIST=""
 if [ "$WITH_CAVEMAN" -eq 1 ]; then
   PLUGIN_LIST="$PLUGIN_LIST dsh-plugin-caveman"
 fi
 
 if [ "$SKIP_BUILD" -eq 0 ]; then
-  say "Собираю локальные плагины ($PLUGIN_LIST)"
+  say "Собираю poh-bft-plugin (skills/poh-bft-writer/plugin)"
+  (cd "$BFT_PLUGIN_DIR" && pnpm install && pnpm build)
+  [ -n "$PLUGIN_LIST" ] && say "Собираю локальные плагины ($PLUGIN_LIST)"
   for p in $PLUGIN_LIST; do
     echo "  · $p"
     (cd "$REPO_ROOT/plugins/$p" && pnpm install && pnpm build)
@@ -171,8 +177,8 @@ say "Настраиваю профиль '$PROFILE_NAME'"
 PROFILE_DIR="$DSH_HOME/profiles/$PROFILE_NAME"
 mkdir -p "$PROFILE_DIR"
 
-BUNDLES_JSON='"@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dsh-plugin-subscriptions", "dsh-plugin-bft", "dsh-result-only-view"'
-PLUGIN_DEPS_JSON='"dsh-plugin-bft": "link:'"$REPO_ROOT"'/plugins/dsh-plugin-bft",
+BUNDLES_JSON='"@deepseek-ai/dsh-base", "@deepseek-ai/dsh-web-app", "dsh-plugin-subscriptions", "poh-bft-plugin", "dsh-result-only-view"'
+PLUGIN_DEPS_JSON='"poh-bft-plugin": "link:'"$BFT_PLUGIN_DIR"'",
     "dsh-plugin-subscriptions": "'"$SUBSCRIPTIONS_VERSION"'",
     "dsh-result-only-view": "'"$RESULT_ONLY_VIEW_VERSION"'"'
 if [ "$WITH_CAVEMAN" -eq 1 ]; then
