@@ -1,0 +1,3 @@
+# якорь workspace плагина (не даёт pnpm уползти к корню репо) + сборка esbuild
+allowBuilds:
+  esbuild: true
