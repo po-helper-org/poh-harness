@@ -65,3 +65,34 @@ __SKILL_DIRS__
 - id: bft-requirements
   config:
     workspaceRoot: '__WORKSPACE__'
+
+# ── Утренний бриф PO (poh-morning-plugin) ──────────────────────────────────────
+# Провайдер навыков /morning + /mts-link-sync из vendor/poh-morning-status.
+# Каталог skills/ плагин находит сам (рядом с пакетом); конфиг пуст.
+- id: morning-status
+  config: {}
+
+# ── Inbox «Управление коммуникацией» (dsh-communication-plugin) ────────────────
+# Читает базу заявок относительно workspaceRoot; сбор идёт отдельным процессом
+# (node bin/collect.mjs в каталоге плагина) — см. vendor/dsh-communication-plugin.
+- id: communication-inbox
+  config:
+    workspaceRoot: '__WORKSPACE__'
+
+# ── Мобильный скин (poh-mobile-skin) ───────────────────────────────────────────
+# CSS-адаптация под узкий экран: drawer-сайдбар, вертикальные иконки плагинов.
+# Конфигурации нет — плагин только вставляет стили в браузере.
+- id: poh-mobile-skin
+  config: {}
+
+# ── LLM-провайдер Z.AI (GLM) через pi-ai ──────────────────────────────────────
+# Тот же ZAI_API_KEY, что у Hermes-агентов: значение живёт в окружении процесса
+# (systemd EnvironmentFile, в git не попадает), конфиг несёт только ссылку
+# apiKeyEnv — секретов в репозитории нет. Роут zai наследует каталог pi-ai
+# (api.z.ai coding endpoint): glm-4.7, glm-5-turbo, glm-5.2, glm-5.3 и др.
+- id: llm-pi-ai
+  name: '@deepseek-ai/dsh-llm-pi-ai'
+  config:
+    providers:
+      zai:
+        apiKeyEnv: ZAI_API_KEY

@@ -1,7 +1,7 @@
 ---
 id: DEMO-3
 title: 'БФТ: Пуш-уведомления о статусе доставки'
-status: DEEP-WORK
+status: DEEP-REVIEW
 assignee: []
 created_date: '2026-09-04 16:16'
 labels: []

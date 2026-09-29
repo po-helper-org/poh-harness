@@ -23,4 +23,4 @@ PORT="${PORT:-3082}"
 export DSH_HOME="$REPO_ROOT/.dsh-data"
 
 cd "$REPO_ROOT"
-exec node_modules/.bin/dsh web --no-open --port "$PORT"
+exec node_modules/.bin/dsh web --no-open --port "$PORT" ${DSH_TRUSTED_HOST:+--trusted-host "$DSH_TRUSTED_HOST"}
