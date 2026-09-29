@@ -13,3 +13,14 @@ overrides:
 # node-pty/koffi требуют approve-builds на каждой машине). Ставим только
 # официальные @deepseek-ai/* пакеты через фиксированный пин.
 dangerouslyAllowAllBuilds: true
+
+# dsh-result-only-view@1.6.4 против ядра 0.1.7: list-слот conversation.chat.turnTail
+# регистрируется без id — фронтенд 0.1.7 бросает «list slot ... requires options.id»
+# и роняет кусок UI. Патч добавляет id (копия в profile/patches/, применяется pnpm).
+patchedDependencies:
+  dsh-result-only-view@1.6.4: patches/dsh-result-only-view@1.6.4.patch
+
+# dsh-plugin-subscriptions публикуется часто; свежий релиз моложе кута
+# minimumReleaseAge — это ожидаемо для нашего пина, исключаем.
+minimumReleaseAgeExclude:
+  - dsh-plugin-subscriptions@0.9.6

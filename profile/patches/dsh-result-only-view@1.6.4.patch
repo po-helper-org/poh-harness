@@ -1,0 +1,13 @@
+diff --git a/lib/client.js b/lib/client.js
+index a5ba7bfc02b3918118c9d80a770d511d2b3a7628..132c19f9d657e2d5f36608a77328a3e5a0bec64d 100644
+--- a/lib/client.js
++++ b/lib/client.js
+@@ -1326,7 +1326,7 @@ window.__ModuleLoader__.load({
+       slots.inject("conversation.chat.turnTail", () =>
+         slots.register(
+           {
+-            name: "conversation.chat.turnTail",
++            name: "conversation.chat.turnTail", id: "result-only-turn-trace",
+             select: () => (enabled && settings.trace ? {} : null),
+           },
+           TurnTrace,
