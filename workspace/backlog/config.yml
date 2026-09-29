@@ -1,6 +1,6 @@
 project_name: "POH Demo"
 default_status: "To Do"
-statuses: ["To Do", "FAST-DONE", "REVIEW-DONE", "DEEP-WORK", "DEEP-REVIEW", "DEEP-DONE", "Cancelled"]
+statuses: ["To Do", "NEED-CUSTDEV", "FAST-DONE", "DEEP-REVIEW", "DEEP-DONE", "OKR-ADDED", "BFT-CANCELED"]
 labels: []
 types: ["bft", "task"]
 date_format: yyyy-mm-dd
