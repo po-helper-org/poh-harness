@@ -33,6 +33,10 @@ workspace/sprint-report.lock.json
 workspace/backlog/*
 !workspace/backlog/config.yml
 workspace/bft/documentation/*
+# рабочие артефакты раздела требований: конфиг пайплайна и журнал проработки
+workspace/bft/bft-config.md
+workspace/bft/index/*
+!workspace/bft/index/README.md
 *.db
 *.db-wal
 *.db-shm
