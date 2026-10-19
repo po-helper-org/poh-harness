@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Включается install.sh (git config core.hooksPath .githooks).
+exec "$(git rev-parse --show-toplevel)/scripts/check-leaks.sh"

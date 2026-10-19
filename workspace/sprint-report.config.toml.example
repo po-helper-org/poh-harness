@@ -1,0 +1,34 @@
+# Пример конфига отчёта actual-sprint (скилл из skills/poh-sprint-agents).
+# Скопируйте в sprint-report.config.toml и впишите свои доски — рабочий файл
+# в .gitignore и в репозиторий не попадает (как и отчёты в reports/).
+#
+# Запуск: python3 .claude/skills/actual-sprint/runner/run.py run --config sprint-report.config.toml
+version = 1
+
+output = "./reports/sprint-report.html"
+notes  = "./reports/sprint-report-notes.json"
+strict = true
+
+[jira]
+url_env   = "JIRA_URL"             # имя переменной окружения с адресом Jira
+token_env = "JIRA_PERSONAL_TOKEN"  # имя переменной с токеном; сам токен — только в env
+# ca_bundle = "./certs/corp-ca.pem"   # если корпоративный CA не в системном хранилище
+
+# порядок команд = порядок вкладок; первая открыта по умолчанию
+[[teams]]
+slug  = "team-a"
+name  = "Команда A"
+board = 123                        # id Scrum-доски
+collector = "base"
+
+[teams.params]
+story_types   = ["История"]
+sprints_back  = 3
+activity_days = 7
+control_days  = 30
+# epic_link_field = "customfield_XXXXX"   # поле «Ссылка на эпик» вашего Jira (/rest/api/2/field)
+
+# Статусы вне правил бакетов по умолчанию: progress | review | done | todo
+[teams.params.status_buckets]
+"Анализ" = "progress"
+"Готово к проверке" = "review"

@@ -19,3 +19,27 @@ pnpm-lock.yaml.bak-*
 # Мусор ОС и редакторов
 .DS_Store
 *.swp
+
+# ── Защита от утечек: репозиторий ПУБЛИЧНЫЙ ────────────────────────────────────
+# Рабочие данные PO живут только локально. Демо-файлы воркспейса уже в git и
+# остаются отслеживаемыми; новые задачи/документы — ваши рабочие, в git не идут
+# (добавить новый демо-файл — осознанно: git add -f). Проверка перед коммитом —
+# scripts/check-leaks.sh (pre-commit хук, включается install.sh) и CI на PR.
+workspace/communication/
+workspace/GROUND/PULSE/
+workspace/reports/
+workspace/sprint-report.config.toml
+workspace/sprint-report.lock.json
+workspace/backlog/tasks/*
+workspace/bft/documentation/*
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.bak
+*.bak-*
+.leakcheck.local
+
+# Локальные индексы и инструменты
+.repowise/
+.tools/

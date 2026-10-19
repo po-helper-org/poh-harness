@@ -45,7 +45,7 @@ import type { Context as ClientContext } from '@deepseek-ai/cordis'
 // выравнивания) — пакет внешний (см. CLIENT_EXTERNALS в tsdown.config.ts), берётся у хоста
 // в рантайме, его CSS хост уже гарантированно загрузил (Button/иконки используются по всему
 // харнессу).
-import { IconChecklistOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChecklistOutline14 } from './ChecklistIcon.js'
 import { defineStore, type PropsStore, type StoreHandle } from '@deepseek-ai/dsh-client-store'
 import type { RpcResult } from '../channel.js'
 import { ru, type BftLocaleKey } from './locales.js'

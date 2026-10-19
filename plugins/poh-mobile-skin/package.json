@@ -1,0 +1,42 @@
+{
+  "name": "poh-mobile-skin",
+  "version": "0.1.0",
+  "description": "Мобильный скин poh-harness: drawer-сайдбар по кнопке, вертикальные иконки плагинов, чистый центр как у Claude",
+  "license": "MIT",
+  "type": "module",
+  "main": "lib/index.js",
+  "types": "lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./lib/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": []
+    }
+  },
+  "scripts": {
+    "build": "tsc && node scripts/build.mjs",
+    "stand": "node test/stand.mjs"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "typescript": "^5.9.3",
+    "esbuild": "^0.25.0"
+  }
+}

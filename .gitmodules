@@ -7,3 +7,12 @@
 [submodule "skills/poh-helper"]
 	path = skills/poh-helper
 	url = https://github.com/po-helper-org/poh-helper.git
+[submodule "vendor/poh-morning-status"]
+	path = vendor/poh-morning-status
+	url = https://github.com/po-helper-org/poh-morning-status.git
+[submodule "vendor/dsh-communication-plugin"]
+	path = vendor/dsh-communication-plugin
+	url = https://github.com/po-helper-org/dsh-communication-plugin.git
+[submodule "skills/poh-sprint-agents"]
+	path = skills/poh-sprint-agents
+	url = https://github.com/po-helper-org/poh-sprint-agents.git
