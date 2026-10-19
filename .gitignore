@@ -30,7 +30,8 @@ workspace/GROUND/PULSE/
 workspace/reports/
 workspace/sprint-report.config.toml
 workspace/sprint-report.lock.json
-workspace/backlog/tasks/*
+workspace/backlog/*
+!workspace/backlog/config.yml
 workspace/bft/documentation/*
 *.db
 *.db-wal
