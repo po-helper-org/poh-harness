@@ -60,7 +60,7 @@ systemctl --user disable --now poh-harness.service  # стоп
 | `node_modules/.bin/dsh` | CLI харнесса — обычная npm-зависимость (`@deepseek-ai/dsh`, см. `package.json`), не клон исходников. |
 | `.dsh-data/` | Сессии, учётные данные подписки, профили. **Не в git.** |
 | `.dsh-data/profiles/web/` | Манифест профиля и слои патчей — генерируются установщиком из `profile/*.tpl`. |
-| `plugins/dsh-plugin-bft/` | Исходники раздела «Управление требованиями» (git subtree из ishmanov-cortex). |
+| `plugins/dsh-plugin-bft/` | Исходники раздела «Управление требованиями» (git subtree из my-workspace). |
 | `plugins/dsh-plugin-caveman/` | Опциональный стиль ответов (`--with-caveman`). |
 | `skills/` | Submodule'ы скиллов po-helper-org (`poh-bft-writer`, `poh-okr-agent`, `poh-helper`). |
 | `workspace/` | Демо-воркспейс по умолчанию (задачи БФТ, документы, минимальный GROUND). |

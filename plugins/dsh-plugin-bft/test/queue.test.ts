@@ -4,12 +4,12 @@ import { boardColumns, queueGroups, searchTasks } from '../src/queue.js'
 import type { BftTaskSummary } from '../src/model.js'
 
 const TASKS: BftTaskSummary[] = [
-  { id: 'PO-9',  title: 'Расширение каталога Ticketland в UMC', stage: 'To Do',       priority: 'medium' },
+  { id: 'PO-9',  title: 'Расширение каталога Acme Tickets в UnitA', stage: 'To Do',       priority: 'medium' },
   { id: 'PO-20', title: 'Блокировка мест на схеме зала',        stage: 'DEEP-REVIEW', priority: 'high' },
   { id: 'PO-10', title: 'Переезд MSSQL на pgSQL',               stage: 'DEEP-WORK',   priority: 'high' },
   { id: 'PO-14', title: 'Доработка СПА с платформы',            stage: 'DEEP-WORK',   priority: 'high' },
   { id: 'PO-8',  title: 'Проблема с фондами',                   stage: 'To Do',       priority: 'high' },
-  { id: 'PO-15', title: 'Перенос ВК Билетов',                   stage: 'DEEP-DONE',   priority: 'medium' },
+  { id: 'PO-15', title: 'Перенос AppV Билетов',                   stage: 'DEEP-DONE',   priority: 'medium' },
   { id: 'PO-11', title: 'AI Harness агент',                     stage: 'Cancelled',   priority: 'low' },
 ]
 
@@ -58,20 +58,20 @@ test('ничего не нашлось — пустой список', () => {
 test('поиск находит по заказчику, когда поле есть', () => {
   const full = [
     { id: 'PO-20', title: 'Блокировка мест', stage: 'To Do' as const, priority: 'high' as const,
-      customer: 'Кардона Елена (ОПРО)', description: 'Бронь держат спекулянты.',
+      customer: 'Лисицына Елена (Операции)', description: 'Бронь держат спекулянты.',
       howToDemo: [], links: { other: [] } },
     { id: 'PO-13', title: 'Кино на ВТБ Афише', stage: 'To Do' as const, priority: 'low' as const,
-      customer: 'Бородин Максим (Коммерция)', description: 'Новый канал продаж.',
+      customer: 'Панов Максим (Коммерция)', description: 'Новый канал продаж.',
       howToDemo: [], links: { other: [] } },
   ]
-  assert.deepEqual(searchTasks(full, 'кардона').map(t => t.id), ['PO-20'])
+  assert.deepEqual(searchTasks(full, 'лисицына').map(t => t.id), ['PO-20'])
   assert.deepEqual(searchTasks(full, 'коммерция').map(t => t.id), ['PO-13'])
 })
 
 test('поиск находит по описанию', () => {
   const full = [
     { id: 'PO-20', title: 'Блокировка мест', stage: 'To Do' as const, priority: 'high' as const,
-      customer: 'Кардона Елена', description: 'Бронь держат спекулянты.',
+      customer: 'Лисицына Елена', description: 'Бронь держат спекулянты.',
       howToDemo: [], links: { other: [] } },
   ]
   assert.deepEqual(searchTasks(full, 'спекулянт').map(t => t.id), ['PO-20'])

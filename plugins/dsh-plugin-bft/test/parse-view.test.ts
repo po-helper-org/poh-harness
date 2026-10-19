@@ -4,27 +4,27 @@ import { parseTaskView } from '../src/parse-view.js'
 
 const FILLED = `File: /Users/x/backlog/tasks/po-15 - БФТ.md
 
-Task PO-15 - БФТ: Перенос ВК Билетов на виджет Ticketland
+Task PO-15 - БФТ: Перенос AppV Билетов на виджет Acme Tickets
 ==================================================
 
 Status: ○ DEEP-DONE
 Priority: Medium
 Type: bft
 Labels: bft-needed
-References: https://confluence.example.com/pages/viewpage.action?pageId=2472119875, bft/documentation/vk-tickets-ticketland-widget/vk-tickets-ticketland-widget.html
+References: https://confluence.example.com/pages/viewpage.action?pageId=1000000001, bft/documentation/vk-tickets-acme-tickets-widget/vk-tickets-acme-tickets-widget.html
 
 Description:
 --------------------------------------------------
-Live перестали поддерживать, виджет отстаёт.
+TeamB перестали поддерживать, виджет отстаёт.
 
 ## SMART
-К началу Q1 2027 ВК.Билеты работают на виджете Ticketland.
+К началу Q1 2027 AppV.Билеты работают на виджете Acme Tickets.
 
 Acceptance Criteria:
 --------------------------------------------------
 - [ ] #1 Открываем VK
 - [x] #2 Жмём «Купить билет»
-- [ ] #3 Открывается виджет Ticketland
+- [ ] #3 Открывается виджет Acme Tickets
 
 Definition of Done:
 --------------------------------------------------
@@ -66,15 +66,15 @@ Implementation Notes:
 test('читает шапку задачи', () => {
   const t = parseTaskView(FILLED)
   assert.equal(t.id, 'PO-15')
-  assert.equal(t.title, 'Перенос ВК Билетов на виджет Ticketland')
+  assert.equal(t.title, 'Перенос AppV Билетов на виджет Acme Tickets')
   assert.equal(t.stage, 'DEEP-DONE')
   assert.equal(t.priority, 'medium')
 })
 
 test('SMART-цель вынимает из секции описания и убирает из описания', () => {
   const t = parseTaskView(FILLED)
-  assert.equal(t.smart, 'К началу Q1 2027 ВК.Билеты работают на виджете Ticketland.')
-  assert.equal(t.description, 'Live перестали поддерживать, виджет отстаёт.')
+  assert.equal(t.smart, 'К началу Q1 2027 AppV.Билеты работают на виджете Acme Tickets.')
+  assert.equal(t.description, 'TeamB перестали поддерживать, виджет отстаёт.')
 })
 
 test('HowToDemo собирает из пунктов приёмки в порядке номеров', () => {
@@ -82,20 +82,20 @@ test('HowToDemo собирает из пунктов приёмки в поря�
   assert.deepEqual(t.howToDemo, [
     'Открываем VK',
     'Жмём «Купить билет»',
-    'Открывается виджет Ticketland',
+    'Открывается виджет Acme Tickets',
   ])
 })
 
 test('ссылки разбирает и раскладывает', () => {
   const t = parseTaskView(FILLED, undefined, { confluenceHost: 'confluence.example.com' })
-  assert.equal(t.links.confluence, 'https://confluence.example.com/pages/viewpage.action?pageId=2472119875')
-  assert.equal(t.links.html, 'bft/documentation/vk-tickets-ticketland-widget/vk-tickets-ticketland-widget.html')
+  assert.equal(t.links.confluence, 'https://confluence.example.com/pages/viewpage.action?pageId=1000000001')
+  assert.equal(t.links.html, 'bft/documentation/vk-tickets-acme-tickets-widget/vk-tickets-acme-tickets-widget.html')
 })
 
 test('без настроенных хостов confluence-ссылка остаётся просто ссылкой', () => {
   const t = parseTaskView(FILLED)
   assert.equal(t.links.confluence, undefined)
-  assert.equal(t.links.html, 'bft/documentation/vk-tickets-ticketland-widget/vk-tickets-ticketland-widget.html')
+  assert.equal(t.links.html, 'bft/documentation/vk-tickets-acme-tickets-widget/vk-tickets-acme-tickets-widget.html')
 })
 
 test('пустые секции дают пустые значения, а не падение', () => {
@@ -120,12 +120,12 @@ test('CRLF-переводы строк не ломают разбор', () => {
   const t = parseTaskView(FILLED.replace(/\n/g, '\r\n'))
   assert.equal(t.id, 'PO-15')
   assert.equal(t.stage, 'DEEP-DONE')
-  assert.equal(t.description, 'Live перестали поддерживать, виджет отстаёт.')
-  assert.equal(t.smart, 'К началу Q1 2027 ВК.Билеты работают на виджете Ticketland.')
+  assert.equal(t.description, 'TeamB перестали поддерживать, виджет отстаёт.')
+  assert.equal(t.smart, 'К началу Q1 2027 AppV.Билеты работают на виджете Acme Tickets.')
   assert.deepEqual(t.howToDemo, [
     'Открываем VK',
     'Жмём «Купить билет»',
-    'Открывается виджет Ticketland',
+    'Открывается виджет Acme Tickets',
   ])
 })
 
@@ -206,9 +206,9 @@ Type: bft
 
 Description:
 --------------------------------------------------
-Заказчик: Кардона Елена (ОПРО). Бесконечная бронь позволяет спекулянтам держать места.
+Заказчик: Лисицына Елена (Операции). Бесконечная бронь позволяет спекулянтам держать места.
 `)
-  assert.equal(t.customer, 'Кардона Елена (ОПРО)')
+  assert.equal(t.customer, 'Лисицына Елена (Операции)')
   assert.equal(t.description, 'Бесконечная бронь позволяет спекулянтам держать места.')
 })
 
@@ -222,9 +222,9 @@ Type: bft
 
 Description:
 --------------------------------------------------
-Заказчик: Николаев Данила / Романов Василий (Engineering). PoC AI-агента.
+Заказчик: Андреев Даниил / Егоров Василий (Engineering). PoC AI-агента.
 `)
-  assert.equal(t.customer, 'Николаев Данила / Романов Василий (Engineering)')
+  assert.equal(t.customer, 'Андреев Даниил / Егоров Василий (Engineering)')
   assert.equal(t.description, 'PoC AI-агента.')
 })
 

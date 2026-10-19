@@ -86,7 +86,7 @@ const sync = await reader.readLastSync()          // метка синхрони
 Живой дымовой тест запускается так:
 
 ```sh
-BFT_WORKSPACE_ROOT=/путь/к/ishmanov-cortex pnpm test
+BFT_WORKSPACE_ROOT=/путь/к/my-workspace pnpm test
 ```
 
 Без переменной эти два теста пропускаются, остальные идут как обычно.

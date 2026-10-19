@@ -6,28 +6,28 @@ const HOSTS = { jiraHost: 'jira.example.com', confluenceHost: 'confluence.exampl
 
 test('раскладывает ссылки по видам', () => {
   const links = classifyLinks([
-    'https://confluence.example.com/pages/viewpage.action?pageId=2472119875',
-    'https://jira.example.com/browse/TLND-19311',
+    'https://confluence.example.com/pages/viewpage.action?pageId=1000000001',
+    'https://jira.example.com/browse/ACME-19311',
     'okr:strategy-2026q3-kr-1-6',
-    'bft/documentation/vk-tickets-ticketland-widget/vk-tickets-ticketland-widget.html',
+    'bft/documentation/vk-tickets-acme-tickets-widget/vk-tickets-acme-tickets-widget.html',
   ], undefined, HOSTS)
-  assert.equal(links.confluence, 'https://confluence.example.com/pages/viewpage.action?pageId=2472119875')
-  assert.equal(links.epic, 'https://jira.example.com/browse/TLND-19311')
+  assert.equal(links.confluence, 'https://confluence.example.com/pages/viewpage.action?pageId=1000000001')
+  assert.equal(links.epic, 'https://jira.example.com/browse/ACME-19311')
   assert.equal(links.okr, 'strategy-2026q3-kr-1-6')
-  assert.equal(links.html, 'bft/documentation/vk-tickets-ticketland-widget/vk-tickets-ticketland-widget.html')
+  assert.equal(links.html, 'bft/documentation/vk-tickets-acme-tickets-widget/vk-tickets-acme-tickets-widget.html')
   assert.deepEqual(links.other, [])
 })
 
 test('без настроенных хостов эпик и confluence остаются просто ссылками', () => {
   const links = classifyLinks([
     'https://confluence.example.com/pages/viewpage.action?pageId=1',
-    'https://jira.example.com/browse/TLND-1',
+    'https://jira.example.com/browse/ACME-1',
   ])
   assert.equal(links.confluence, undefined)
   assert.equal(links.epic, undefined)
   assert.deepEqual(links.other, [
     'https://confluence.example.com/pages/viewpage.action?pageId=1',
-    'https://jira.example.com/browse/TLND-1',
+    'https://jira.example.com/browse/ACME-1',
   ])
 })
 
@@ -48,11 +48,11 @@ test('html вне bft/documentation считает прочей ссылкой',
 
 test('при нескольких ссылках одного вида берёт первую', () => {
   const links = classifyLinks([
-    'https://jira.example.com/browse/TLND-1',
-    'https://jira.example.com/browse/TLND-2',
+    'https://jira.example.com/browse/ACME-1',
+    'https://jira.example.com/browse/ACME-2',
   ], undefined, HOSTS)
-  assert.equal(links.epic, 'https://jira.example.com/browse/TLND-1')
-  assert.deepEqual(links.other, ['https://jira.example.com/browse/TLND-2'])
+  assert.equal(links.epic, 'https://jira.example.com/browse/ACME-1')
+  assert.deepEqual(links.other, ['https://jira.example.com/browse/ACME-2'])
 })
 
 test('пустой список даёт пустую структуру', () => {

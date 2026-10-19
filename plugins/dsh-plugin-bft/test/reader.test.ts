@@ -44,7 +44,7 @@ Type: bft
 
 Description:
 --------------------------------------------------
-Заказчик: Кардона Елена (ОПРО). Бесконечная бронь.
+Заказчик: Лисицына Елена (Операции). Бесконечная бронь.
 `
 
 function ok(stdout: string): CommandResult {
@@ -73,7 +73,7 @@ test('карточка задачи разбирается', async () => {
   const reader = new BacklogReader(CONFIG, { runCommand: async () => ok(VIEW) })
   const task = await reader.getTask('PO-20')
   assert.equal(task.id, 'PO-20')
-  assert.equal(task.customer, 'Кардона Елена (ОПРО)')
+  assert.equal(task.customer, 'Лисицына Елена (Операции)')
 })
 
 test('идентификатор задачи попадает в аргументы как есть', async () => {
@@ -359,7 +359,7 @@ test('listTasks использует тип задач из конфигурац
 
 /** Вывод `task view` с произвольным набором ссылок. */
 function viewWithRefs(refs: string): string {
-  return `Task PO-22 - БФТ: Билеты в кино в Vibe App
+  return `Task PO-22 - БФТ: Билеты в кино в AppV
 ==========
 
 Status: ○ FAST-DONE
@@ -369,7 +369,7 @@ References: ${refs}
 
 Description:
 --------------------------------------------------
-Заказчик: Геворгян Виктория (Коммерция). Данные не пробрасываются.
+Заказчик: Белова Виктория (Коммерция). Данные не пробрасываются.
 `
 }
 
@@ -378,42 +378,42 @@ test('находит html, даже если в ссылках только .md 
   // а все пути записаны с префиксом имени репозитория.
   const reader = new BacklogReader(CONFIG, {
     runCommand: async () => ok(viewWithRefs(
-      'ishmanov-cortex/bft/documentation/vibe-kino-user-data/letter.md, '
-      + 'ishmanov-cortex/bft/documentation/vibe-kino-user-data/vibe-kino-user-data.md',
+      'my-workspace/bft/documentation/appv-cinema-user-data/letter.md, '
+      + 'my-workspace/bft/documentation/appv-cinema-user-data/appv-cinema-user-data.md',
     )),
-    listDirectory: async () => ['letter.md', 'requirements.md', 'vibe-kino-user-data.md', 'vibe-kino-user-data.html'],
+    listDirectory: async () => ['letter.md', 'requirements.md', 'appv-cinema-user-data.md', 'appv-cinema-user-data.html'],
     readTextFile: async () => '<!doctype html><h1>БФТ</h1>',
   })
   const doc = await reader.findDocument('PO-22')
   assert.equal(doc?.kind, 'html')
-  assert.equal(doc?.path, 'bft/documentation/vibe-kino-user-data/vibe-kino-user-data.html')
+  assert.equal(doc?.path, 'bft/documentation/appv-cinema-user-data/appv-cinema-user-data.html')
 })
 
 test('FAST-DONE без html показывает письмо, а не пустой экран', async () => {
   const reader = new BacklogReader(CONFIG, {
-    runCommand: async () => ok(viewWithRefs('bft/documentation/vibe/letter.md')),
+    runCommand: async () => ok(viewWithRefs('bft/documentation/appv/letter.md')),
     listDirectory: async () => ['letter.md', 'requirements.md'],
     readTextFile: async () => '# Письмо\n\nЦель: ...',
   })
   const doc = await reader.findDocument('PO-22')
   assert.equal(doc?.kind, 'markdown')
-  assert.equal(doc?.path, 'bft/documentation/vibe/letter.md')
+  assert.equal(doc?.path, 'bft/documentation/appv/letter.md')
 })
 
 test('старое имя каталога .bft в ссылках всё ещё находит документ', async () => {
   const reader = new BacklogReader(CONFIG, {
-    runCommand: async () => ok(viewWithRefs('ishmanov-cortex/.bft/documentation/vibe/vibe.md')),
-    listDirectory: async () => ['vibe.html'],
+    runCommand: async () => ok(viewWithRefs('my-workspace/.bft/documentation/appv/appv.md')),
+    listDirectory: async () => ['appv.html'],
     readTextFile: async () => '<html></html>',
   })
   const doc = await reader.findDocument('PO-22')
-  assert.equal(doc?.path, 'bft/documentation/vibe/vibe.html')
+  assert.equal(doc?.path, 'bft/documentation/appv/appv.html')
 })
 
 test('нет ссылок в каталог документов — документа нет, но и падения нет', async () => {
   const reader = new BacklogReader(CONFIG, {
     runCommand: async () => ok(viewWithRefs('https://jira.example.com/browse/PROJ-1')),
-    listDirectory: async () => ['vibe.html'],
+    listDirectory: async () => ['appv.html'],
     readTextFile: async () => '<html></html>',
   })
   assert.equal(await reader.findDocument('PO-22'), null)
@@ -421,7 +421,7 @@ test('нет ссылок в каталог документов — докум�
 
 test('пустая папка эпика — документа нет', async () => {
   const reader = new BacklogReader(CONFIG, {
-    runCommand: async () => ok(viewWithRefs('bft/documentation/vibe/letter.md')),
+    runCommand: async () => ok(viewWithRefs('bft/documentation/appv/letter.md')),
     listDirectory: async () => [],
     readTextFile: async () => null,
   })
@@ -430,18 +430,18 @@ test('пустая папка эпика — документа нет', async (
 
 test('пустой файл не выдаётся за документ — берётся следующий кандидат', async () => {
   const reader = new BacklogReader(CONFIG, {
-    runCommand: async () => ok(viewWithRefs('bft/documentation/vibe/letter.md')),
-    listDirectory: async () => ['vibe.html', 'letter.md'],
+    runCommand: async () => ok(viewWithRefs('bft/documentation/appv/letter.md')),
+    listDirectory: async () => ['appv.html', 'letter.md'],
     readTextFile: async (path: string) => (path.endsWith('.html') ? '   ' : '# Письмо'),
   })
   const doc = await reader.findDocument('PO-22')
-  assert.equal(doc?.path, 'bft/documentation/vibe/letter.md')
+  assert.equal(doc?.path, 'bft/documentation/appv/letter.md')
 })
 
 test('нечитаемый html не обрывает поиск — показывается markdown', async () => {
   const reader = new BacklogReader(CONFIG, {
-    runCommand: async () => ok(viewWithRefs('bft/documentation/vibe/letter.md')),
-    listDirectory: async () => ['vibe.html', 'letter.md'],
+    runCommand: async () => ok(viewWithRefs('bft/documentation/appv/letter.md')),
+    listDirectory: async () => ['appv.html', 'letter.md'],
     readTextFile: async (path: string) => {
       if (path.endsWith('.html')) throw new DocumentUnreadableError(path, 'permission denied')
       return '# Письмо'
@@ -453,12 +453,12 @@ test('нечитаемый html не обрывает поиск — показ�
 
 test('ссылка на артефакт вглубь папки тоже определяет эпик', async () => {
   const reader = new BacklogReader(CONFIG, {
-    runCommand: async () => ok(viewWithRefs('ishmanov-cortex/bft/documentation/vibe/artefacts/validation.md')),
-    listDirectory: async () => ['vibe.html'],
+    runCommand: async () => ok(viewWithRefs('my-workspace/bft/documentation/appv/artefacts/validation.md')),
+    listDirectory: async () => ['appv.html'],
     readTextFile: async () => '<html></html>',
   })
   const doc = await reader.findDocument('PO-22')
-  assert.equal(doc?.path, 'bft/documentation/vibe/vibe.html')
+  assert.equal(doc?.path, 'bft/documentation/appv/appv.html')
 })
 
 test('рабочее пространство чатов резолвится в абсолютный путь', () => {

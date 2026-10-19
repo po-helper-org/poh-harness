@@ -29,7 +29,7 @@ Type: bft
 
 Description:
 --------------------------------------------------
-Заказчик: Кардона Елена (ОПРО). Бесконечная бронь.
+Заказчик: Лисицына Елена (Операции). Бесконечная бронь.
 `
 
 function readerWith(stdout: string, readTextFile: () => Promise<string | null> = async () => null) {
@@ -54,7 +54,7 @@ test('list отдаёт список требований', async () => {
 test('task отдаёт карточку требования', async () => {
   const result = await dispatch(readerWith(VIEW), 'task', { id: 'PO-20' }, NO_SIGNAL)
   assert.equal(result.ok, true)
-  assert.equal((result as { value: { customer?: string } }).value.customer, 'Кардона Елена (ОПРО)')
+  assert.equal((result as { value: { customer?: string } }).value.customer, 'Лисицына Елена (Операции)')
 })
 
 test('document отдаёт содержимое документа', async () => {
@@ -142,7 +142,7 @@ test('findDocument требует идентификатор', async () => {
 test('findDocument отдаёт найденный артефакт клиенту', async () => {
   const VIEW_WITH_REFS = VIEW.replace(
     'Type: bft',
-    'Type: bft\nReferences: ishmanov-cortex/bft/documentation/vibe/letter.md',
+    'Type: bft\nReferences: my-workspace/bft/documentation/appv/letter.md',
   )
   const reader = new BacklogReader(CONFIG, {
     runCommand: async () => ({ stdout: VIEW_WITH_REFS, stderr: '', code: 0, timedOut: false, killedBySignal: null }),
@@ -152,7 +152,7 @@ test('findDocument отдаёт найденный артефакт клиент
   const result = await dispatch(reader, 'findDocument', { id: 'PO-20' }, NO_SIGNAL)
   assert.equal(result.ok, true)
   assert.deepEqual(result.ok === true && result.value, {
-    path: 'bft/documentation/vibe/letter.md',
+    path: 'bft/documentation/appv/letter.md',
     kind: 'markdown',
     content: '# Письмо',
   })
