@@ -58,10 +58,22 @@ __SKILL_DIRS__
   name: '@deepseek-ai/dsh-tool-skill'
   disabled: false
 
-# ── Раздел «Управление требованиями» (dsh-plugin-bft) ─────────────────────────
-# Строка монтирования плагина приходит из его собственного cordis.patch.yml
-# (plugins/dsh-plugin-bft/cordis.patch.yml); здесь задаётся только обязательный
-# workspaceRoot — он свой на каждой машине, поэтому в пакет не зашит.
+# ── Раздел «Управление требованиями» (poh-bft-plugin) ─────────────────────────
+# Строка монтирования приходит из собственного cordis.patch.yml плагина
+# (skills/poh-bft-writer/plugin/cordis.patch.yml); здесь — то, что зависит от
+# машины и раскладки воркспейса. Полный список ключей — README плагина.
+#
+# docsPath/indexPath: демо-воркспейс держит документы в bft/, а не в .bft/ —
+# заданный явно путь в плагине запасных не имеет, поэтому указываем свой.
+# entireRequired: false — без адреса entire.io (entireBaseUrl) плагин иначе не
+# стартует вовсе; задайте entireBaseUrl и уберите эту строку, если он есть.
+# claudeBin: чат по требованию через Claude Code CLI; `off` — черновик уходит в
+# композер харнесса. Умолчание — `claude` из PATH.
+# formUrl / sheetUrl / syncPrompt правятся в интерфейсе (Plugins → Требования)
+# и дописываются сюда самим харнессом.
 - id: bft-requirements
   config:
     workspaceRoot: '__WORKSPACE__'
+    docsPath: bft/documentation
+    indexPath: bft/index
+    entireRequired: false
