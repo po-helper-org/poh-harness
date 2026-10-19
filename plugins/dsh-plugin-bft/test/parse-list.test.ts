@@ -4,13 +4,13 @@ import { parseTaskList } from '../src/parse-list.js'
 
 const STDOUT = `To Do:
   [HIGH] [bft] PO-20 - БФТ: Блокировка мест на схеме зала (спекулянты)
-  [MEDIUM] [bft] PO-9 - БФТ: Расширение каталога Ticketland в UMC
+  [MEDIUM] [bft] PO-9 - БФТ: Расширение каталога Acme Tickets в UnitA
   [LOW] [bft] PO-23 - БФТ: Сопровождение Email-интеграции Bartello
   [HIGH] PO-1 - Зарелизить кино на Production
-  PO-6 - Актуализировать подзадачи эпика GDSLV-1047
+  PO-6 - Актуализировать подзадачи эпика ACME-1047
 
 DEEP-WORK:
-  [HIGH] [bft] PO-10 - БФТ: Переезд MSSQL -> pgSQL (uat_db, web_db)
+  [HIGH] [bft] PO-10 - БФТ: Переезд MSSQL -> pgSQL (stage_db, store_db)
 
 In Progress:
   [MEDIUM] PO-4 - Уточнить назначение фонда

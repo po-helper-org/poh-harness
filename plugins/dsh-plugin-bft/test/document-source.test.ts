@@ -6,23 +6,23 @@ const DOCS = 'bft/documentation'
 
 test('канонический путь остаётся собой', () => {
   assert.equal(
-    normalizeDocsRef('bft/documentation/vibe/vibe.html', DOCS),
-    'bft/documentation/vibe/vibe.html',
+    normalizeDocsRef('bft/documentation/appv/appv.html', DOCS),
+    'bft/documentation/appv/appv.html',
   )
 })
 
 test('префикс имени репозитория снимается — регрессия PO-22', () => {
   // Так пайплайн реально пишет ссылки; из-за этого панель показывала «Документа нет».
   assert.equal(
-    normalizeDocsRef('ishmanov-cortex/bft/documentation/vibe/vibe.md', DOCS),
-    'bft/documentation/vibe/vibe.md',
+    normalizeDocsRef('my-workspace/bft/documentation/appv/appv.md', DOCS),
+    'bft/documentation/appv/appv.md',
   )
 })
 
 test('старое имя каталога .bft приводится к актуальному', () => {
   assert.equal(
-    normalizeDocsRef('ishmanov-cortex/.bft/documentation/vibe/vibe.html', DOCS),
-    'bft/documentation/vibe/vibe.html',
+    normalizeDocsRef('my-workspace/.bft/documentation/appv/appv.html', DOCS),
+    'bft/documentation/appv/appv.html',
   )
 })
 
@@ -55,9 +55,9 @@ test('slug эпика берётся из любой ссылки внутрь �
   // У PO-22 в references только .md — HTML не зарегистрирован вовсе.
   const refs = [
     'https://jira.example.com/browse/PROJ-1',
-    'ishmanov-cortex/bft/documentation/vibe-kino-user-data/artefacts/validation.md',
+    'my-workspace/bft/documentation/appv-cinema-user-data/artefacts/validation.md',
   ]
-  assert.equal(epicSlugFromRefs(refs, DOCS), 'vibe-kino-user-data')
+  assert.equal(epicSlugFromRefs(refs, DOCS), 'appv-cinema-user-data')
 })
 
 test('без ссылок в каталог документов slug не выдумывается', () => {
@@ -65,29 +65,29 @@ test('без ссылок в каталог документов slug не вы�
 })
 
 test('канонический html предпочитается прочим артефактам', () => {
-  const got = rankCandidates('vibe', ['letter.md', 'vibe.md', 'vibe.html'], DOCS)
-  assert.deepEqual(got[0], { path: 'bft/documentation/vibe/vibe.html', kind: 'html' })
+  const got = rankCandidates('appv', ['letter.md', 'appv.md', 'appv.html'], DOCS)
+  assert.deepEqual(got[0], { path: 'bft/documentation/appv/appv.html', kind: 'html' })
 })
 
 test('FAST-DONE без html показывает письмо и таблицу требований', () => {
-  const got = rankCandidates('vibe', ['letter.md', 'requirements.md'], DOCS)
+  const got = rankCandidates('appv', ['letter.md', 'requirements.md'], DOCS)
   assert.deepEqual(got.map(c => c.path), [
-    'bft/documentation/vibe/letter.md',
-    'bft/documentation/vibe/requirements.md',
+    'bft/documentation/appv/letter.md',
+    'bft/documentation/appv/requirements.md',
   ])
   assert.ok(got.every(c => c.kind === 'markdown'))
 })
 
 test('html с нестандартным именем тоже находится', () => {
-  const got = rankCandidates('vibe', ['renamed.html'], DOCS)
-  assert.deepEqual(got, [{ path: 'bft/documentation/vibe/renamed.html', kind: 'html' }])
+  const got = rankCandidates('appv', ['renamed.html'], DOCS)
+  assert.deepEqual(got, [{ path: 'bft/documentation/appv/renamed.html', kind: 'html' }])
 })
 
 test('пустая папка эпика не даёт кандидатов', () => {
-  assert.deepEqual(rankCandidates('vibe', [], DOCS), [])
+  assert.deepEqual(rankCandidates('appv', [], DOCS), [])
 })
 
 test('дубликатов в списке кандидатов нет', () => {
-  const got = rankCandidates('vibe', ['vibe.html'], DOCS)
+  const got = rankCandidates('appv', ['appv.html'], DOCS)
   assert.equal(got.length, 1)
 })
