@@ -1,0 +1,68 @@
+%% Карта зависимостей Ticketland от UMC — внутренний документ, 06.10.2026
+%% Ticketland связан с UMC дважды: как поставщик (вверху) и как потребитель (внизу).
+%% ①–⑤ — функции UMC, которыми пользуется Ticketland; красное — рычаги отключения; пунктир — резерв или план.
+flowchart TB
+  subgraph IN["ПОСТАВЩИКИ КАТАЛОГА"]
+    direction LR
+    subgraph TLS["Ticketland — поставщик"]
+      direction LR
+      BASIS["БАЗИС / GDS<br/>свой каталог"] --> KTOP["Kafka c-basis-to-live<br/>19 топиков + остатки"]
+    end
+    TC["TicketsCloud<br/>концерты"]
+    P24["P24 / Кинопасс<br/>кино"]
+  end
+
+  subgraph UMC["UMC · Медиаплатформа (PO Поковба, техлид Матиев)"]
+    direction LR
+    FM["① Загрузка<br/>Feed Managers"] --> CORE[("Каталог UMC")]
+    CORE --> CANON["② Дедупликация<br/>Canonical"]
+    CORE --> AVAIL["③ Виджет, цена, наличие<br/>Availability"]
+    CANON --> GATE{{"⑤ Фильтр по потребителям<br/>HIDDEN_PROVIDERS + ключ витрины<br/>TicketsCloud скрыт по умолчанию"}}
+    AVAIL --> GATE
+    GATE --> OUT["④ Распространение<br/>GraphQL + Kafka push"]
+  end
+
+  subgraph OUTS["ПОТРЕБИТЕЛИ КАТАЛОГА"]
+    direction LR
+    subgraph TLC["Ticketland — потребитель"]
+      direction TB
+      LOADER["LoaderService<br/>читает по ключу витрины"] --> WEBDB[("web_db<br/>слепок каталога")]
+      WEBDB --> SHOW["Витрина Ticketland"]
+      WEBDB --> VTB["Витрина ВТБ Афиша"]
+      RES["Резерв мимо UMC:<br/>uat_db → web_db, MRS / kinoimport"] -.-> WEBDB
+      WIDGET["Виджет покупки Ticketland"]
+    end
+    MUSIC["МТС Музыка"]
+    MPR["МПР / MRS"]
+    LDE["LDE"]
+    VIBE["Vibe<br/>кино P24, план Q4"]
+  end
+
+  KTOP -->|"наш каталог целиком"| FM
+  TC -->|"gRPC"| FM
+  P24 -->|"REST"| FM
+  OUT ==>|"TicketsCloud и кино P24"| LOADER
+  OUT --> MUSIC
+  OUT --> MPR
+  OUT --> LDE
+  OUT -.-> VIBE
+  MUSIC -->|"TicketsCloud продаётся<br/>только через наш виджет"| WIDGET
+  TC -.->|"прецедент обхода UMC<br/>Integration-009"| VIBE
+
+  classDef tl fill:#E8F1FB,stroke:#1F3864,color:#10233F,font-size:15px
+  classDef umc fill:#F3EFFA,stroke:#5B3F99,color:#2B1D4A,font-size:15px
+  classDef lever fill:#FDECEC,stroke:#C62828,color:#7F1414,stroke-width:2px,font-size:15px
+  classDef other fill:#F4F4F4,stroke:#888,color:#333,font-size:15px
+  classDef reserve fill:#EEF7EE,stroke:#2E7D32,color:#1B4D1E,stroke-dasharray:4 3,font-size:14px
+  class BASIS,KTOP,LOADER,WEBDB,SHOW,VTB,WIDGET tl
+  class FM,CORE,CANON,AVAIL,OUT umc
+  class GATE lever
+  class TC,P24,MUSIC,MPR,LDE,VIBE other
+  class RES reserve
+  style TLS fill:#DCEAF8,stroke:#1F3864,stroke-width:2px
+  style TLC fill:#DCEAF8,stroke:#1F3864,stroke-width:2px
+  style UMC fill:#FAF8FD,stroke:#5B3F99
+  style IN fill:#FFFFFF,stroke:#BBB
+  style OUTS fill:#FFFFFF,stroke:#BBB
+  linkStyle 14 stroke:#C62828,stroke-width:3px
+  linkStyle 11 stroke:#1F3864,stroke-width:3px
