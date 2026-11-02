@@ -35,7 +35,7 @@ PATTERNS=(
   '(api[_-]?key|token|secret|passw(or)?d)["'"'"' ]*[:=][ ]*["'"'"'][A-Za-z0-9_/+=.-]{16,}'
   '(api[_-]?key|token|secret|passw(or)?d)["'"'"' ]*[:=][ ]*[A-Za-z0-9/+=-]{16,}'
   '[?&]token=[A-Za-z0-9_-]{8,}'                  # launch-токен dsh в ссылке
-  '([a-z0-9-]+\.)*mts\.ru'                       # корпоративные хосты
+  '([a-z0-9-]+\.)*m[t]s\.ru'                     # корпоративные хосты
   'customfield_[0-9]{4,}'                        # id полей конкретного Jira
   # email (кроме example/noreply, см. ниже); домен с буквой — не ловит pkg@1.2.3
   '[A-Za-z0-9._%+-]+@[A-Za-z0-9-]*[A-Za-z][A-Za-z0-9-]*(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}'

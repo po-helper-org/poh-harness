@@ -79,7 +79,7 @@ __SKILL_DIRS__
     entireRequired: false
 
 # ── Утренний бриф PO (poh-morning-plugin) ──────────────────────────────────────
-# Провайдер навыков /morning + /mts-link-sync из vendor/poh-morning-status.
+# Провайдер навыков /morning + /corpchat-sync из vendor/poh-morning-status.
 # Каталог skills/ плагин находит сам (рядом с пакетом); конфиг пуст.
 - id: morning-status
   config: {}
