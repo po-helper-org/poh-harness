@@ -62,7 +62,7 @@ systemctl --user disable --now poh-harness.service  # стоп
 | `.dsh-data/profiles/web/` | Манифест профиля и слои патчей — генерируются установщиком из `profile/*.tpl`. |
 | `plugins/dsh-plugin-bft/` | Исходники раздела «Управление требованиями» (git subtree из my-workspace). |
 | `plugins/dsh-plugin-caveman/` | Опциональный стиль ответов (`--with-caveman`). |
-| `skills/` | Submodule'ы скиллов po-helper-org (`poh-bft-writer`, `poh-okr-agent`, `poh-helper`). |
+| `skills/` | Submodule'ы скиллов po-helper-org (`poh-bft-writer`, `poh-blueprint-writer` — навыки карты и MCP «Система Blueprint», `poh-okr-agent`, `poh-helper`). |
 | `workspace/` | Демо-воркспейс по умолчанию (задачи БФТ, документы, минимальный GROUND). |
 | `profile/*.tpl` | Источник истины по профилю — обоснование каждой строки (Backlog.md, Context7, скиллы, БФТ-плагин) прямо в комментариях шаблона. Правьте здесь, а не в `.dsh-data`. |
 
