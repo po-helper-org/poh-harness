@@ -19,3 +19,6 @@
 [submodule "vendor/poh-okr-plugin"]
 	path = vendor/poh-okr-plugin
 	url = https://github.com/po-helper-org/poh-okr-plugin.git
+[submodule "skills/poh-blueprint-writer"]
+	path = skills/poh-blueprint-writer
+	url = https://github.com/po-helper-org/poh-blueprint-writer.git

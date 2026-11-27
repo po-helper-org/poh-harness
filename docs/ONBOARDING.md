@@ -130,9 +130,14 @@ cp plugins/dsh-plugin-bft/.env.example plugins/dsh-plugin-bft/.env
 
 ### 5.3 Скиллы
 
-Установщик уже подключил три submodule'а po-helper-org (`skills/poh-bft-writer`,
-`skills/poh-okr-agent`, `skills/poh-helper`) — семейство `/bft-*` (генерация и
-проработка требований) доступно сразу. `<ваш-воркспейс>/.claude/skills` — ещё
+Установщик уже подключил submodule'ы po-helper-org (`skills/poh-bft-writer`,
+`skills/poh-blueprint-writer`, `skills/poh-okr-agent`, `skills/poh-helper`) — семейство
+`/bft-*` (генерация и проработка требований) и `/bft-blueprint` с `/adr`,
+`/system-requirements`, `/bft-reconcile`, `/release-plan` (карта инициативы по готовому БФТ)
+доступны сразу. Диаграммами модель управляет и инструментами MCP `blueprint`
+(`blueprint_list`, `blueprint_get`, `blueprint_submit_*`, `blueprint_run` …) — сервер
+запускается из профиля сам; свои настройки (например `skills_path`) — в
+`<ваш-воркспейс>/.blueprint-mcp.json`, формат — `skills/poh-blueprint-writer/service/config.example.json`. `<ваш-воркспейс>/.claude/skills` — ещё
 один корень, для собственных скиллов вашей команды.
 
 ## Проверка, что всё сошлось

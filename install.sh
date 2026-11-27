@@ -136,7 +136,7 @@ fi
 say "Скиллы воркспейса (git submodules)"
 if [ -f "$REPO_ROOT/.gitmodules" ]; then
   git -C "$REPO_ROOT" submodule update --init --recursive
-  ok "skills/poh-bft-writer, skills/poh-okr-agent, skills/poh-sprint-agents, skills/poh-helper"
+  ok "skills/poh-bft-writer, skills/poh-blueprint-writer, skills/poh-okr-agent, skills/poh-sprint-agents, skills/poh-helper"
 else
   warn ".gitmodules не найден — пропускаю (клон без submodule'ов?)"
 fi
@@ -149,6 +149,7 @@ fi
 # скиллами из poh-helper. poh-sprint-agents — РАНЬШЕ poh-helper по той же
 # причине: его новый sprint-planner должен перекрыть архивный из poh-helper.
 SKILL_DIRS_YAML="      - '$REPO_ROOT/skills/poh-bft-writer/skills'
+      - '$REPO_ROOT/skills/poh-blueprint-writer/skills'
       - '$REPO_ROOT/skills/poh-okr-agent/skills'
       - '$REPO_ROOT/skills/poh-sprint-agents/.claude/skills'
       - '$REPO_ROOT/skills/poh-helper/.claude/skills'"

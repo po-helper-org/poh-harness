@@ -22,6 +22,26 @@
         cwd: '__WORKSPACE__'
         env: {}
 
+# ── MCP «Система Blueprint» (poh-blueprint-writer, service/) ─────────────────
+# Service Blueprint диаграммы воркспейса как инструменты модели: список и этапы,
+# чтение артефактов, запись истории, плана карты, документов этапов и контрактов
+# с проверкой линтерами навыка, сборка, вопросы карты. Те же данные, что у
+# «Сервиса Blueprint» (/blueprint/) в меню отчётов спринта. stdio, без токена:
+# процесс харнесса сам запускает сервер и читает воркспейс. Нужен python3 3.10+.
+- insert:
+    - id: blueprint-mcp
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: blueprint
+        transport: stdio
+        command: python3
+        args: ['__REPO_ROOT__/skills/poh-blueprint-writer/service/server.py', 'mcp']
+        cwd: '__WORKSPACE__'
+        env:
+          BLUEPRINT_WORKSPACE: '__WORKSPACE__'
+          BLUEPRINT_DOCS_PATH: bft/documentation
+          POH_BLUEPRINT_CONFIG: '__WORKSPACE__/.blueprint-mcp.json'
+
 # ── Context7 как нативные инструменты ─────────────────────────────────────────
 # https://context7.com — актуальная документация библиотек. Streamable HTTP,
 # на дефолтном рейт-лимите ключ не нужен.
